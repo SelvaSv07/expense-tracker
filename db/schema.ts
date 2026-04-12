@@ -88,7 +88,7 @@ export const accountRelations = relations(account, ({ one }) => ({
   }),
 }));
 
-// --- App ---
+// --- App (INR; integer columns store paisa / minor units) ---
 
 export const wallets = pgTable(
   "wallets",
@@ -98,8 +98,8 @@ export const wallets = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    currency: text("currency").notNull().default("USD"),
-    openingBalanceCents: integer("opening_balance_cents").notNull().default(0),
+    currency: text("currency").notNull().default("INR"),
+    openingBalance: integer("opening_balance").notNull().default(0),
     isDefault: boolean("is_default").notNull().default(false),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -132,7 +132,7 @@ export const transactions = pgTable(
     categoryId: text("category_id")
       .notNull()
       .references(() => categories.id, { onDelete: "restrict" }),
-    amountCents: integer("amount_cents").notNull(),
+    amount: integer("amount").notNull(),
     occurredAt: timestamp("occurred_at").notNull(),
     note: text("note"),
     paymentMethod: text("payment_method"),
@@ -155,7 +155,7 @@ export const budgets = pgTable(
       .notNull()
       .references(() => categories.id, { onDelete: "cascade" }),
     yearMonth: timestamp("year_month").notNull(),
-    amountCents: integer("amount_cents").notNull(),
+    amount: integer("amount").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -176,8 +176,8 @@ export const goals = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    targetAmountCents: integer("target_amount_cents").notNull(),
-    savedAmountCents: integer("saved_amount_cents").notNull().default(0),
+    targetAmount: integer("target_amount").notNull(),
+    savedAmount: integer("saved_amount").notNull().default(0),
     targetDate: timestamp("target_date"),
     notes: text("notes"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -193,7 +193,7 @@ export const goalContributions = pgTable(
     goalId: text("goal_id")
       .notNull()
       .references(() => goals.id, { onDelete: "cascade" }),
-    amountCents: integer("amount_cents").notNull(),
+    amount: integer("amount").notNull(),
     occurredAt: timestamp("occurred_at").notNull(),
     note: text("note"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
