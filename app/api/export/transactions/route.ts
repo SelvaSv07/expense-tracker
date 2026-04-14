@@ -1,9 +1,8 @@
 import { db } from "@/db";
-import { categories, transactions, wallets } from "@/db/schema";
+import { categories, transactions } from "@/db/schema";
 import { parseTimeFromSearchParams } from "@/lib/search-params-time";
 import { getSession } from "@/lib/session";
 import { getRangeFromPreset } from "@/lib/time-range";
-import { resolveWalletId } from "@/lib/wallet-server";
 import { and, desc, eq, gte, lte } from "drizzle-orm";
 import ExcelJS from "exceljs";
 import { NextRequest, NextResponse } from "next/server";
@@ -18,18 +17,10 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const format = searchParams.get("format") ?? "excel";
   const sp = Object.fromEntries(searchParams.entries());
-  const { preset, custom } = parseTimeFromSearchParams(sp);
-  const range = getRangeFromPreset(preset, new Date(), custom);
+  const { preset, custom, monthRef } = parseTimeFromSearchParams(sp);
+  const range = getRangeFromPreset(preset, new Date(), custom, monthRef);
 
-  const walletId = await resolveWalletId(session.user.id);
-  const [w] = await db
-    .select()
-    .from(wallets)
-    .where(and(eq(wallets.id, walletId), eq(wallets.userId, session.user.id)))
-    .limit(1);
-  if (!w) {
-    return NextResponse.json({ error: "Wallet" }, { status: 400 });
-  }
+  const userId = session.user.id;
 
   const rows = await db
     .select({
@@ -45,7 +36,7 @@ export async function GET(request: NextRequest) {
     .innerJoin(categories, eq(transactions.categoryId, categories.id))
     .where(
       and(
-        eq(transactions.walletId, walletId),
+        eq(transactions.userId, userId),
         gte(transactions.occurredAt, range.start),
         lte(transactions.occurredAt, range.end),
       ),

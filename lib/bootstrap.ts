@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { categories, wallets } from "@/db/schema";
+import { categories, userFinance } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 const DEFAULT_CATEGORIES: { name: string; type: "income" | "expense"; icon: string }[] =
@@ -16,24 +16,32 @@ const DEFAULT_CATEGORIES: { name: string; type: "income" | "expense"; icon: stri
     { name: "Shopping", type: "expense", icon: "shopping-bag" },
   ];
 
+async function ensureUserFinanceRow(userId: string) {
+  const [existing] = await db
+    .select({ userId: userFinance.userId })
+    .from(userFinance)
+    .where(eq(userFinance.userId, userId))
+    .limit(1);
+  if (existing) return;
+  await db.insert(userFinance).values({
+    userId,
+    openingBalance: 0,
+  });
+}
+
 export async function ensureUserBootstrap(userId: string) {
   const existing = await db
-    .select({ id: wallets.id })
-    .from(wallets)
-    .where(eq(wallets.userId, userId))
+    .select({ id: categories.id })
+    .from(categories)
+    .where(eq(categories.userId, userId))
     .limit(1);
 
-  if (existing.length > 0) return;
+  if (existing.length > 0) {
+    await ensureUserFinanceRow(userId);
+    return;
+  }
 
-  const walletId = crypto.randomUUID();
-  await db.insert(wallets).values({
-    id: walletId,
-    userId,
-    name: "Main Wallet",
-    currency: "INR",
-    openingBalance: 0,
-    isDefault: true,
-  });
+  await ensureUserFinanceRow(userId);
 
   await db.insert(categories).values(
     DEFAULT_CATEGORIES.map((c) => ({

@@ -69,11 +69,6 @@ export const verification = pgTable("verification", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const userRelations = relations(user, ({ many }) => ({
-  sessions: many(session),
-  accounts: many(account),
-}));
-
 export const sessionRelations = relations(session, ({ one }) => ({
   user: one(user, {
     fields: [session.userId],
@@ -90,22 +85,20 @@ export const accountRelations = relations(account, ({ one }) => ({
 
 // --- App (INR; integer columns store paisa / minor units) ---
 
-export const wallets = pgTable(
-  "wallets",
-  {
-    id: text("id").primaryKey(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    currency: text("currency").notNull().default("INR"),
-    openingBalance: integer("opening_balance").notNull().default(0),
-    isDefault: boolean("is_default").notNull().default(false),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  },
-  (t) => [index("wallets_user_id_idx").on(t.userId)],
-);
+/** One row per user: starting balance for running balance (optional). */
+export const userFinance = pgTable("user_finance", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  openingBalance: integer("opening_balance").notNull().default(0),
+});
+
+export const userFinanceRelations = relations(userFinance, ({ one }) => ({
+  user: one(user, {
+    fields: [userFinance.userId],
+    references: [user.id],
+  }),
+}));
 
 export const categories = pgTable(
   "categories",
@@ -126,9 +119,9 @@ export const transactions = pgTable(
   "transactions",
   {
     id: text("id").primaryKey(),
-    walletId: text("wallet_id")
+    userId: text("user_id")
       .notNull()
-      .references(() => wallets.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     categoryId: text("category_id")
       .notNull()
       .references(() => categories.id, { onDelete: "restrict" }),
@@ -139,18 +132,16 @@ export const transactions = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (t) => [
-    index("transactions_wallet_occurred_idx").on(t.walletId, t.occurredAt),
-  ],
+  (t) => [index("transactions_user_occurred_idx").on(t.userId, t.occurredAt)],
 );
 
 export const budgets = pgTable(
   "budgets",
   {
     id: text("id").primaryKey(),
-    walletId: text("wallet_id")
+    userId: text("user_id")
       .notNull()
-      .references(() => wallets.id, { onDelete: "cascade" }),
+      .references(() => user.id, { onDelete: "cascade" }),
     categoryId: text("category_id")
       .notNull()
       .references(() => categories.id, { onDelete: "cascade" }),
@@ -160,8 +151,8 @@ export const budgets = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("budgets_wallet_category_month_uidx").on(
-      t.walletId,
+    uniqueIndex("budgets_user_category_month_uidx").on(
+      t.userId,
       t.categoryId,
       t.yearMonth,
     ),
@@ -201,15 +192,6 @@ export const goalContributions = pgTable(
   (t) => [index("goal_contributions_goal_occurred_idx").on(t.goalId, t.occurredAt)],
 );
 
-export const walletsRelations = relations(wallets, ({ one, many }) => ({
-  user: one(user, {
-    fields: [wallets.userId],
-    references: [user.id],
-  }),
-  transactions: many(transactions),
-  budgets: many(budgets),
-}));
-
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
   user: one(user, {
     fields: [categories.userId],
@@ -220,9 +202,9 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
 }));
 
 export const transactionsRelations = relations(transactions, ({ one }) => ({
-  wallet: one(wallets, {
-    fields: [transactions.walletId],
-    references: [wallets.id],
+  user: one(user, {
+    fields: [transactions.userId],
+    references: [user.id],
   }),
   category: one(categories, {
     fields: [transactions.categoryId],
@@ -231,9 +213,9 @@ export const transactionsRelations = relations(transactions, ({ one }) => ({
 }));
 
 export const budgetsRelations = relations(budgets, ({ one }) => ({
-  wallet: one(wallets, {
-    fields: [budgets.walletId],
-    references: [wallets.id],
+  user: one(user, {
+    fields: [budgets.userId],
+    references: [user.id],
   }),
   category: one(categories, {
     fields: [budgets.categoryId],
@@ -258,3 +240,14 @@ export const goalContributionsRelations = relations(
     }),
   }),
 );
+
+export const userRelations = relations(user, ({ many, one }) => ({
+  sessions: many(session),
+  accounts: many(account),
+  finance: one(userFinance, {
+    fields: [user.id],
+    references: [userFinance.userId],
+  }),
+  transactions: many(transactions),
+  budgets: many(budgets),
+}));

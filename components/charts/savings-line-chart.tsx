@@ -22,8 +22,13 @@ export function SavingsLineChart({
   }));
 
   return (
-    <div className="h-[280px] w-full">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="h-[280px] w-full min-w-0">
+      <ResponsiveContainer
+        width="100%"
+        height="100%"
+        minWidth={0}
+        initialDimension={{ width: 400, height: 280 }}
+      >
         <LineChart data={chart}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis dataKey="date" tick={{ fontSize: 10 }} />

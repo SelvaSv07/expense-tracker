@@ -16,8 +16,13 @@ export function BudgetRadarChart({
   data: { month: string; pct: number }[];
 }) {
   return (
-    <div className="h-[300px] w-full">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="h-[300px] w-full min-w-0">
+      <ResponsiveContainer
+        width="100%"
+        height="100%"
+        minWidth={0}
+        initialDimension={{ width: 400, height: 300 }}
+      >
         <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data}>
           <PolarGrid />
           <PolarAngleAxis dataKey="month" tick={{ fontSize: 10 }} />

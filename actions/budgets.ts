@@ -1,14 +1,13 @@
 "use server";
 
 import { db } from "@/db";
-import { budgets, categories, wallets } from "@/db/schema";
+import { budgets, categories } from "@/db/schema";
 import { getSession } from "@/lib/session";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 const upsertSchema = z.object({
-  walletId: z.string(),
   categoryId: z.string(),
   yearMonth: z.coerce.date(),
   amount: z.number().int().nonnegative(),
@@ -18,15 +17,6 @@ export async function upsertBudget(input: z.infer<typeof upsertSchema>) {
   const parsed = upsertSchema.parse(input);
   const session = await getSession();
   if (!session?.user?.id) throw new Error("Unauthorized");
-
-  const [w] = await db
-    .select()
-    .from(wallets)
-    .where(
-      and(eq(wallets.id, parsed.walletId), eq(wallets.userId, session.user.id)),
-    )
-    .limit(1);
-  if (!w) throw new Error("Wallet not found");
 
   const [c] = await db
     .select()
@@ -49,7 +39,7 @@ export async function upsertBudget(input: z.infer<typeof upsertSchema>) {
     .from(budgets)
     .where(
       and(
-        eq(budgets.walletId, parsed.walletId),
+        eq(budgets.userId, session.user.id),
         eq(budgets.categoryId, parsed.categoryId),
         eq(budgets.yearMonth, first),
       ),
@@ -67,7 +57,7 @@ export async function upsertBudget(input: z.infer<typeof upsertSchema>) {
   } else {
     await db.insert(budgets).values({
       id: crypto.randomUUID(),
-      walletId: parsed.walletId,
+      userId: session.user.id,
       categoryId: parsed.categoryId,
       yearMonth: first,
       amount: parsed.amount,
@@ -75,6 +65,7 @@ export async function upsertBudget(input: z.infer<typeof upsertSchema>) {
   }
 
   revalidatePath("/");
+  revalidatePath("/budget");
 }
 
 export async function deleteBudget(budgetId: string) {
@@ -84,11 +75,11 @@ export async function deleteBudget(budgetId: string) {
   const [row] = await db
     .select({ id: budgets.id })
     .from(budgets)
-    .innerJoin(wallets, eq(budgets.walletId, wallets.id))
-    .where(and(eq(budgets.id, budgetId), eq(wallets.userId, session.user.id)))
+    .where(and(eq(budgets.id, budgetId), eq(budgets.userId, session.user.id)))
     .limit(1);
 
   if (!row) throw new Error("Not found");
   await db.delete(budgets).where(eq(budgets.id, budgetId));
   revalidatePath("/");
+  revalidatePath("/budget");
 }

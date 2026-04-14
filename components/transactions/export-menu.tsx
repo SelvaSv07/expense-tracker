@@ -15,11 +15,13 @@ import { ChevronDown, Download } from "lucide-react";
 export function ExportMenu({
   preset,
   custom,
+  monthKey,
 }: {
   preset: TimePreset;
   custom?: { from: Date; to: Date };
+  monthKey?: string;
 }) {
-  const q = timeQueryString(preset, custom);
+  const q = timeQueryString(preset, custom, { monthKey });
   const base = `/api/export/transactions?${q}`;
 
   return (

@@ -29,8 +29,13 @@ export function ExpensePieChart({
   }));
 
   return (
-    <div className="h-[260px] w-full">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="h-[260px] w-full min-w-0">
+      <ResponsiveContainer
+        width="100%"
+        height="100%"
+        minWidth={0}
+        initialDimension={{ width: 400, height: 260 }}
+      >
         <PieChart>
           <Pie
             data={chartData}

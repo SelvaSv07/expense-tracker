@@ -1,6 +1,7 @@
 import { ExpensePieChart } from "@/components/charts/expense-pie-chart";
 import { AddTransactionDialog } from "@/components/transactions/add-transaction-dialog";
 import { ExportMenu } from "@/components/transactions/export-menu";
+import { TransactionCategoryLabel } from "@/components/transactions/transaction-category-label";
 import { TransactionRowActions } from "@/components/transactions/transaction-row-actions";
 import { CustomRangePicker } from "@/components/dashboard/custom-range-picker";
 import { MetricCard } from "@/components/dashboard/metric-card";
@@ -28,7 +29,6 @@ import {
   listCategories,
   listTransactionsWithCategory,
 } from "@/lib/queries";
-import { resolveWalletId } from "@/lib/wallet-server";
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 
@@ -41,14 +41,15 @@ export default async function TransactionsPage({
   if (!session?.user) redirect("/sign-in");
 
   const sp = await searchParams;
-  const { preset, custom } = parseTimeFromSearchParams(sp);
-  const walletId = await resolveWalletId(session.user.id);
+  const { preset, custom, monthRef, monthKey } =
+    parseTimeFromSearchParams(sp);
+  const userId = session.user.id;
 
   const [agg, txs, breakdown, cats] = await Promise.all([
-    getTransactionAggregates(walletId, preset, custom),
-    listTransactionsWithCategory(walletId, preset, custom),
-    getExpenseBreakdown(walletId, preset, custom),
-    listCategories(session.user.id),
+    getTransactionAggregates(userId, preset, custom, monthRef),
+    listTransactionsWithCategory(userId, preset, custom, monthRef),
+    getExpenseBreakdown(userId, preset, custom, monthRef),
+    listCategories(userId),
   ]);
 
   const deltaIncome = agg.income - agg.prevIncome;
@@ -66,10 +67,14 @@ export default async function TransactionsPage({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <TimeframeToolbar preset={preset} basePath="/transactions" />
+          <TimeframeToolbar
+            preset={preset}
+            basePath="/transactions"
+            monthKey={monthKey}
+          />
           <CustomRangePicker basePath="/transactions" />
-          <ExportMenu preset={preset} custom={custom} />
-          <AddTransactionDialog walletId={walletId} categories={cats} />
+          <ExportMenu preset={preset} custom={custom} monthKey={monthKey} />
+          <AddTransactionDialog categories={cats} />
         </div>
       </div>
 
@@ -100,7 +105,7 @@ export default async function TransactionsPage({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+        <Card className="min-w-0 lg:col-span-2">
           <CardHeader>
             <CardTitle>Transaction activity</CardTitle>
             <CardDescription>All entries in the selected range</CardDescription>
@@ -120,13 +125,12 @@ export default async function TransactionsPage({
               <TableBody>
                 {txs.map((tx) => (
                   <TableRow key={tx.id}>
-                    <TableCell className="font-medium">
-                      {tx.categoryName}
-                      {tx.note ? (
-                        <span className="text-muted-foreground block text-xs">
-                          {tx.note}
-                        </span>
-                      ) : null}
+                    <TableCell>
+                      <TransactionCategoryLabel
+                        name={tx.categoryName}
+                        icon={tx.categoryIcon}
+                        note={tx.note}
+                      />
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {tx.occurredAt.toLocaleDateString()}
@@ -170,7 +174,7 @@ export default async function TransactionsPage({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle>Expense breakdown</CardTitle>
             <CardDescription>By category</CardDescription>
