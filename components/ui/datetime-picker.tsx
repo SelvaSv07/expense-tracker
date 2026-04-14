@@ -19,10 +19,41 @@ export function toDatetimeLocalValue(d: Date) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/** Local date string: `YYYY-MM-DD` (no timezone shift). */
+export function toIsoDateString(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 function parseDatetimeLocal(s: string): Date | undefined {
   if (!s.trim()) return undefined;
   const d = new Date(s);
   return isValid(d) ? d : undefined;
+}
+
+function parseIsoDateOnly(s: string): Date | undefined {
+  if (!s.trim()) return undefined;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
+  if (!m) return undefined;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const day = Number(m[3]);
+  const d = new Date(y, mo - 1, day);
+  if (
+    !isValid(d) ||
+    d.getFullYear() !== y ||
+    d.getMonth() !== mo - 1 ||
+    d.getDate() !== day
+  ) {
+    return undefined;
+  }
+  return d;
+}
+
+/** react-day-picker caps year dropdown at end of current year unless `endMonth` is set. */
+function calendarEndMonthYearsFromNow(years: number): Date {
+  const y = new Date().getFullYear();
+  return new Date(y + years, 11, 1);
 }
 
 /** Calendar popover only; reads/writes the same datetime-local string as TimeField. */
@@ -90,6 +121,72 @@ export function DatePicker({
               next.setHours(now.getHours(), now.getMinutes(), 0, 0);
             }
             onChange(toDatetimeLocalValue(next));
+            setOpen(false);
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** Date-only calendar; value is `YYYY-MM-DD` (stable in dialogs / RHF). */
+export function DateOnlyPicker({
+  id,
+  value,
+  onChange,
+  onBlur,
+  disabled,
+  className,
+}: {
+  id?: string;
+  value: string;
+  onChange: (value: string) => void;
+  onBlur?: () => void;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+
+  const date = parseIsoDateOnly(value);
+  const defaultMonth = date ?? new Date();
+  const display = date ? format(date, "dd-MM-yyyy") : "Pick date";
+  const endMonth = React.useMemo(() => calendarEndMonthYearsFromNow(100), []);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        id={id}
+        type="button"
+        disabled={disabled}
+        onBlur={onBlur}
+        className={cn(
+          buttonVariants({ variant: "outline", size: "default" }),
+          "h-8 w-full min-w-0 cursor-pointer justify-start gap-2 border-input bg-transparent px-2.5 text-left font-normal shadow-none hover:bg-transparent dark:bg-input/30",
+          "aria-expanded:bg-transparent aria-expanded:text-foreground dark:aria-expanded:bg-input/30",
+          "aria-expanded:hover:bg-transparent dark:aria-expanded:hover:bg-input/30",
+          !date && "text-muted-foreground",
+          className,
+        )}
+      >
+        <CalendarIcon className="size-4 shrink-0 text-muted-foreground" />
+        <span className="truncate">{display}</span>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-auto min-w-[17.5rem] max-w-[min(20rem,var(--available-width))] p-0"
+        align="start"
+        side="bottom"
+        sideOffset={6}
+      >
+        <Calendar
+          className="w-full min-w-0"
+          mode="single"
+          captionLayout="dropdown"
+          endMonth={endMonth}
+          selected={date}
+          defaultMonth={defaultMonth}
+          onSelect={(d) => {
+            if (!d) return;
+            onChange(toIsoDateString(d));
             setOpen(false);
           }}
         />

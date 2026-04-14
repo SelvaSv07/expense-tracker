@@ -135,9 +135,6 @@ export default async function BudgetPage({
   return (
     <div className="flex flex-col gap-4 pb-2">
       <BudgetPageHeader
-        preset={preset}
-        monthKey={monthKey}
-        custom={custom}
         expenseCategories={expenseCategoriesForBudget}
         defaultMonth={viewMonthDate}
       />

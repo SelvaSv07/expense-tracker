@@ -4,6 +4,7 @@ import {
   index,
   integer,
   pgTable,
+  pgEnum,
   text,
   timestamp,
   uniqueIndex,
@@ -99,6 +100,92 @@ export const userFinanceRelations = relations(userFinance, ({ one }) => ({
     references: [user.id],
   }),
 }));
+
+export const aiMessageRole = pgEnum("ai_message_role", [
+  "user",
+  "assistant",
+  "tool",
+  "system",
+]);
+
+export const aiApprovalStatus = pgEnum("ai_approval_status", [
+  "pending",
+  "approved",
+  "rejected",
+  "expired",
+]);
+
+export const userAiSettings = pgTable("user_ai_settings", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  openaiApiKeyEnc: text("openai_api_key_enc").notNull(),
+  keyLast4: text("key_last4").notNull(),
+  model: text("model"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const aiConversations = pgTable(
+  "ai_conversations",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    title: text("title").notNull().default("New Chat"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("ai_conversations_user_updated_idx").on(t.userId, t.updatedAt)],
+);
+
+export const aiMessages = pgTable(
+  "ai_messages",
+  {
+    id: text("id").primaryKey(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => aiConversations.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: aiMessageRole("role").notNull(),
+    content: text("content").notNull(),
+    metadata: text("metadata"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("ai_messages_user_conversation_created_idx").on(
+      t.userId,
+      t.conversationId,
+      t.createdAt,
+    ),
+  ],
+);
+
+export const aiApprovalStates = pgTable(
+  "ai_approval_states",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => aiConversations.id, { onDelete: "cascade" }),
+    serializedRunState: text("serialized_run_state").notNull(),
+    status: aiApprovalStatus("status").notNull().default("pending"),
+    toolName: text("tool_name"),
+    toolArguments: text("tool_arguments"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("ai_approval_states_user_conversation_idx").on(t.userId, t.conversationId),
+    index("ai_approval_states_status_created_idx").on(t.status, t.createdAt),
+  ],
+);
 
 export const categories = pgTable(
   "categories",
@@ -208,6 +295,47 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
   budgets: many(budgets),
 }));
 
+export const userAiSettingsRelations = relations(userAiSettings, ({ one }) => ({
+  user: one(user, {
+    fields: [userAiSettings.userId],
+    references: [user.id],
+  }),
+}));
+
+export const aiConversationsRelations = relations(
+  aiConversations,
+  ({ one, many }) => ({
+    user: one(user, {
+      fields: [aiConversations.userId],
+      references: [user.id],
+    }),
+    messages: many(aiMessages),
+    approvals: many(aiApprovalStates),
+  }),
+);
+
+export const aiMessagesRelations = relations(aiMessages, ({ one }) => ({
+  user: one(user, {
+    fields: [aiMessages.userId],
+    references: [user.id],
+  }),
+  conversation: one(aiConversations, {
+    fields: [aiMessages.conversationId],
+    references: [aiConversations.id],
+  }),
+}));
+
+export const aiApprovalStatesRelations = relations(aiApprovalStates, ({ one }) => ({
+  user: one(user, {
+    fields: [aiApprovalStates.userId],
+    references: [user.id],
+  }),
+  conversation: one(aiConversations, {
+    fields: [aiApprovalStates.conversationId],
+    references: [aiConversations.id],
+  }),
+}));
+
 export const transactionsRelations = relations(transactions, ({ one }) => ({
   user: one(user, {
     fields: [transactions.userId],
@@ -257,4 +385,11 @@ export const userRelations = relations(user, ({ many, one }) => ({
   }),
   transactions: many(transactions),
   budgets: many(budgets),
+  aiSettings: one(userAiSettings, {
+    fields: [user.id],
+    references: [userAiSettings.userId],
+  }),
+  aiConversations: many(aiConversations),
+  aiMessages: many(aiMessages),
+  aiApprovalStates: many(aiApprovalStates),
 }));

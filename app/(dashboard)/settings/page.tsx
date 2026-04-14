@@ -1,5 +1,5 @@
 import { getSession } from "@/lib/session";
-import { ChevronRight, Tags } from "lucide-react";
+import { ChevronRight, Sparkles, Tags } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -10,6 +10,13 @@ const settingsOptions = [
     description:
       "Income and expense labels, icons, and colors used across transactions and budgets.",
     icon: Tags,
+  },
+  {
+    href: "/settings/ai",
+    title: "AI",
+    description:
+      "Store your OpenAI API key securely and manage Cazura AI assistant behavior.",
+    icon: Sparkles,
   },
 ] as const;
 

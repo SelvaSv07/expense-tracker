@@ -1,18 +1,11 @@
 "use client";
 
-import { AddBudgetDialog } from "@/components/budget/add-budget-dialog";
-import type { BudgetExpenseCategory } from "@/components/budget/add-budget-dialog";
+import { AddGoalDialog } from "@/components/goals/add-goal-dialog";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Plus } from "lucide-react";
 
-export function BudgetPageHeader({
-  expenseCategories,
-  defaultMonth,
-}: {
-  expenseCategories: BudgetExpenseCategory[];
-  defaultMonth: Date;
-}) {
+export function GoalsPageHeader() {
   return (
     <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0 flex-1">
@@ -20,19 +13,17 @@ export function BudgetPageHeader({
           className="text-[22px] leading-tight font-bold tracking-tight"
           style={{ color: "var(--cazura-text)" }}
         >
-          Budget
+          Goals
         </p>
         <p
           className="mt-1 text-[13px] font-medium"
           style={{ color: "var(--cazura-muted)" }}
         >
-          Track and optimize your spending
+          Save toward what matters and watch your progress grow
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2.5">
-        <AddBudgetDialog
-          expenseCategories={expenseCategories}
-          defaultMonth={defaultMonth}
+        <AddGoalDialog
           trigger={
             <button
               type="button"
@@ -47,7 +38,7 @@ export function BudgetPageHeader({
               }}
             >
               <Plus className="size-3.5" strokeWidth={2.5} />
-              Set New Budget
+              New Goal
             </button>
           }
         />

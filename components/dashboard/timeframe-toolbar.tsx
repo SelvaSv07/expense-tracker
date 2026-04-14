@@ -33,6 +33,23 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { endOfDay, startOfDay, startOfMonth, subMonths } from "date-fns";
 
+const cazuraCalendarClassNames = {
+  root: cn(
+    "overflow-hidden rounded-xl border p-2 shadow-none",
+    "border-[var(--cazura-border)] bg-[var(--cazura-panel)]",
+  ),
+  weekdays: "mb-1.5 flex w-full",
+  weekday: cn(
+    "flex min-h-6 flex-1 basis-0 items-center justify-center px-0.5",
+    "text-center text-[0.72rem] font-medium leading-none tracking-wide",
+    "text-[var(--cazura-label)]",
+  ),
+};
+
+const cazuraCalendarCellLayoutClassName = cn(
+  "rounded-xl [--cell-size:2.35rem] [--cell-radius:var(--radius-md)]",
+);
+
 const labels: Record<TimePreset, string> = {
   today: "Today",
   month: "This Month",
@@ -99,25 +116,6 @@ function parseCustomRangeFromSearchParams(
   if (!from || !to) return undefined;
   return { from, to };
 }
-
-/**
- * Calendar shell + weekday row for custom range.
- * Only pass keys we must override: `Calendar` applies `...classNames` last and replaces
- * merged defaults per key, so we must not override `day` / `week` / `month` or layout breaks.
- */
-const cazuraCalendarClassNames = {
-  root: cn(
-    "overflow-hidden rounded-xl border p-2 shadow-none",
-    "border-[var(--cazura-border)] bg-[var(--cazura-panel)]",
-  ),
-  /** Same flex model as date rows: seven equal columns, centered labels. */
-  weekdays: "mb-1.5 flex w-full",
-  weekday: cn(
-    "flex min-h-6 flex-1 basis-0 items-center justify-center px-0.5",
-    "text-center text-[0.72rem] font-medium leading-none tracking-wide",
-    "text-[var(--cazura-label)]",
-  ),
-};
 
 function CazuraTimeframeMenu({
   basePath,
@@ -315,7 +313,10 @@ function CazuraTimeframeMenu({
                     mode="single"
                     selected={draftFrom}
                     onSelect={setDraftFrom}
-                    className="w-fit rounded-xl [--cell-size:2.35rem] [--cell-radius:var(--radius-md)]"
+                    className={cn(
+                      cazuraCalendarCellLayoutClassName,
+                      "w-fit",
+                    )}
                     classNames={cazuraCalendarClassNames}
                   />
                 </div>
@@ -329,7 +330,10 @@ function CazuraTimeframeMenu({
                     mode="single"
                     selected={draftTo}
                     onSelect={setDraftTo}
-                    className="w-fit rounded-xl [--cell-size:2.35rem] [--cell-radius:var(--radius-md)]"
+                    className={cn(
+                      cazuraCalendarCellLayoutClassName,
+                      "w-fit",
+                    )}
                     classNames={cazuraCalendarClassNames}
                   />
                 </div>

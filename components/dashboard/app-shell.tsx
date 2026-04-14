@@ -3,9 +3,7 @@
 import { cn } from "@/lib/utils";
 import {
   ArrowLeftRight,
-  BarChart2,
   ChevronRight,
-  CreditCard,
   Crown,
   HelpCircle,
   LayoutDashboard,
@@ -32,16 +30,9 @@ type NavDef = {
 
 const mainMenu: NavDef[] = [
   { href: "/overview", label: "Overview", icon: LayoutDashboard },
-  {
-    href: "/overview#budget-summary",
-    label: "Spending limit",
-    icon: CreditCard,
-  },
   { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
   { href: "/budget", label: "Budget", icon: Map },
   { href: "/goals", label: "Goals", icon: Target },
-  { href: "/goals", label: "Investment", icon: Wallet, badge: "New" },
-  { href: "/budget", label: "Analytics", icon: BarChart2 },
 ];
 
 const toolsMenu: NavDef[] = [
@@ -97,12 +88,9 @@ export function AppShell({
 
   function isMainActive(href: string, label: string) {
     if (label === "Overview") return pathname === "/overview";
-    if (label === "Spending limit") return false;
     if (label === "Transactions") return pathname.startsWith("/transactions");
     if (label === "Budget") return pathname.startsWith("/budget");
-    if (label === "Goals" || label === "Investment")
-      return pathname.startsWith("/goals");
-    if (label === "Analytics") return pathname.startsWith("/budget");
+    if (label === "Goals") return pathname.startsWith("/goals");
     return pathname === href;
   }
 
@@ -129,7 +117,7 @@ export function AppShell({
           </div>
           <button
             type="button"
-            className="text-[var(--cazura-label)] hover:text-[var(--cazura-muted)]"
+            className="cursor-pointer text-[var(--cazura-label)] hover:text-[var(--cazura-muted)]"
             aria-label="Collapse sidebar"
           >
             <PanelLeftClose className="size-[17px]" strokeWidth={1.8} />
@@ -143,14 +131,29 @@ export function AppShell({
 
         <Link
           href="/ai"
-          className="mb-2 flex items-center gap-2 rounded-lg px-2 py-[7px]"
+          className={cn(
+            "mb-2 flex cursor-pointer items-center gap-2 rounded-lg border px-2 py-[7px] transition-colors",
+            pathname === "/ai"
+              ? "border-[var(--cazura-border)] bg-[var(--cazura-panel)] font-bold"
+              : "border-transparent font-normal hover:bg-[var(--cazura-panel)]/80",
+          )}
         >
           <Sparkles
-            className="size-[17px] shrink-0 text-[var(--cazura-teal-light)]"
+            className={cn(
+              "size-[17px] shrink-0",
+              pathname === "/ai"
+                ? "text-[var(--cazura-teal)]"
+                : "text-[var(--cazura-teal-light)]",
+            )}
             strokeWidth={1.8}
           />
           <span
-            className="bg-gradient-to-r from-[var(--cazura-teal)] via-[var(--cazura-teal-light)] to-[var(--cazura-teal-soft)] bg-clip-text text-[13px] font-medium text-transparent"
+            className={cn(
+              "bg-clip-text text-[13px] text-transparent",
+              pathname === "/ai"
+                ? "bg-gradient-to-r from-[var(--cazura-teal)] via-[var(--cazura-teal-light)] to-[var(--cazura-teal-soft)] font-bold"
+                : "bg-gradient-to-r from-[var(--cazura-teal)] via-[var(--cazura-teal-light)] to-[var(--cazura-teal-soft)] font-medium",
+            )}
             style={{ WebkitTextFillColor: "transparent" }}
           >
             Cazura AI Assistant
@@ -226,7 +229,7 @@ export function AppShell({
           </div>
           <Link
             href="/settings"
-            className="flex items-center gap-0.5 text-[10px] font-bold text-[var(--cazura-teal)]"
+            className="flex cursor-pointer items-center gap-0.5 text-[10px] font-bold text-[var(--cazura-teal)]"
           >
             See plan
             <ChevronRight className="size-[11px]" strokeWidth={2.5} />

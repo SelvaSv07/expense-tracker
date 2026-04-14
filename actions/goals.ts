@@ -85,4 +85,5 @@ export async function deleteGoal(goalId: string) {
 
   await db.delete(goals).where(eq(goals.id, goalId));
   revalidatePath("/");
+  revalidatePath("/goals");
 }

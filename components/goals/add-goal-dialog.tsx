@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { DateOnlyPicker } from "@/components/ui/datetime-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { parseInrInput } from "@/lib/money";
@@ -18,9 +19,43 @@ import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
+import {
+  cloneElement,
+  isValidElement,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
+import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
+
+function mergeDialogOpenTrigger(
+  node: ReactNode,
+  onOpen: () => void,
+): ReactNode {
+  if (!isValidElement(node)) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className={cn(buttonVariants({ size: "sm" }), "cursor-pointer gap-1")}
+      >
+        {node}
+      </button>
+    );
+  }
+  const el = node as ReactElement<{
+    onClick?: (e: React.MouseEvent) => void;
+    className?: string;
+  }>;
+  return cloneElement(el, {
+    className: cn("cursor-pointer", el.props.className),
+    onClick: (e: React.MouseEvent) => {
+      el.props.onClick?.(e);
+      onOpen();
+    },
+  });
+}
 
 const schema = z.object({
   name: z.string().min(1, "Enter a goal name"),
@@ -31,7 +66,16 @@ const schema = z.object({
 
 type Form = z.infer<typeof schema>;
 
-export function AddGoalDialog() {
+function localDateFromYmd(ymd: string): Date {
+  const [y, mo, day] = ymd.split("-").map(Number);
+  return new Date(y, mo - 1, day);
+}
+
+export function AddGoalDialog({
+  trigger,
+}: {
+  trigger?: ReactElement;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const form = useForm<Form>({
@@ -46,7 +90,7 @@ export function AddGoalDialog() {
       name: values.name,
       targetAmount: amt,
       targetDate: values.targetDate
-        ? new Date(values.targetDate)
+        ? localDateFromYmd(values.targetDate)
         : undefined,
       notes: values.notes,
     });
@@ -57,12 +101,16 @@ export function AddGoalDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        className={cn(buttonVariants({ size: "sm" }), "gap-1")}
-      >
-        <Plus className="size-4" />
-        Add goal
-      </DialogTrigger>
+      {trigger ? (
+        mergeDialogOpenTrigger(trigger, () => setOpen(true))
+      ) : (
+        <DialogTrigger
+          className={cn(buttonVariants({ size: "sm" }), "cursor-pointer gap-1")}
+        >
+          <Plus className="size-4" />
+          Add goal
+        </DialogTrigger>
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>New savings goal</DialogTitle>
@@ -81,7 +129,18 @@ export function AddGoalDialog() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="targetDate">Target date</Label>
-            <Input id="targetDate" type="date" {...form.register("targetDate")} />
+            <Controller
+              name="targetDate"
+              control={form.control}
+              render={({ field }) => (
+                <DateOnlyPicker
+                  id="targetDate"
+                  value={field.value ?? ""}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                />
+              )}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="notes">Notes</Label>

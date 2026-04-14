@@ -1,23 +1,15 @@
-import { SavingsLineChart } from "@/components/charts/savings-line-chart";
-import { AddGoalDialog } from "@/components/goals/add-goal-dialog";
-import { ContributionForm } from "@/components/goals/contribution-form";
-import { MetricCard } from "@/components/dashboard/metric-card";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { formatInr } from "@/lib/money";
+import { GoalProgressCard } from "@/components/goals/goal-progress-card";
+import { GoalsHistorySidebar } from "@/components/goals/goals-contribution-sidebar";
+import { GoalsPageHeader } from "@/components/goals/goals-page-header";
+import { GoalsSavingsChartCard } from "@/components/goals/goals-savings-chart-card";
+import { GoalsStatMiniCards } from "@/components/goals/goals-stat-mini-cards";
+import { db } from "@/db";
+import { goalContributions, goals } from "@/db/schema";
 import {
   getGoalContributionSeries,
   getGoalMetrics,
   listGoals,
 } from "@/lib/queries";
-import { db } from "@/db";
-import { goalContributions, goals } from "@/db/schema";
 import { getSession } from "@/lib/session";
 import { desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
@@ -46,141 +38,70 @@ export default async function GoalsPage() {
     .orderBy(desc(goalContributions.occurredAt))
     .limit(20);
 
+  const goalOptions = goalList.map((g) => ({ id: g.id, name: g.name }));
+
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Goals</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Save toward what matters.
-          </p>
-        </div>
-        <AddGoalDialog />
-      </div>
+    <div className="flex flex-col gap-4 pb-2">
+      <GoalsPageHeader />
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <MetricCard title="Total saved" value={metrics.totalSaved} />
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-muted-foreground text-sm font-medium">
-              Active goals
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold">{metrics.active}</p>
-          </CardContent>
-        </Card>
-        <MetricCard
-          title="Avg monthly contribution"
-          value={metrics.avgMonthly}
-        />
-      </div>
+      <GoalsStatMiniCards
+        totalSaved={metrics.totalSaved}
+        active={metrics.active}
+        avgMonthly={metrics.avgMonthly}
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Add contribution</CardTitle>
-          <CardDescription>Record money moved into a goal</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ContributionForm goals={goalList.map((g) => ({ id: g.id, name: g.name }))} />
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        {goalList.map((g) => {
-          const pct =
-            g.targetAmount > 0
-              ? Math.min(
-                  100,
-                  Math.round((g.savedAmount / g.targetAmount) * 100),
-                )
-              : 0;
-          const remaining = Math.max(0, g.targetAmount - g.savedAmount);
-          return (
-            <Card key={g.id}>
-              <CardHeader>
-                <CardTitle className="text-lg">{g.name}</CardTitle>
-                <CardDescription>
-                  {g.targetDate
-                    ? `Target ${g.targetDate.toLocaleDateString()}`
-                    : "No target date"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Progress</span>
-                  <span className="font-medium">{pct}%</span>
-                </div>
-                <Progress value={pct} className="h-2" />
-                <div className="flex justify-between text-sm">
-                  <span>Saved</span>
-                  <span>{formatInr(g.savedAmount)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Target</span>
-                  <span>{formatInr(g.targetAmount)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Remaining</span>
-                  <span>{formatInr(remaining)}</span>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-        {goalList.length === 0 ? (
-          <Card className="lg:col-span-2">
-            <CardContent className="text-muted-foreground py-12 text-center">
-              No goals yet. Create one to start tracking savings.
-            </CardContent>
-          </Card>
-        ) : null}
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Savings growth</CardTitle>
-          <CardDescription>Cumulative contributions over time</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {series.length > 0 ? (
-            <SavingsLineChart data={series} />
-          ) : (
-            <p className="text-muted-foreground text-sm">
-              Contributions will appear here.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Contribution history</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2 text-sm">
-            {history.map((h) => (
-              <li
-                key={h.id}
-                className="flex justify-between border-b py-2 last:border-0"
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
+          {goalList.length === 0 ? (
+            <div
+              className="flex flex-col items-center justify-center gap-2 rounded-xl border px-6 py-14 text-center"
+              style={{
+                background: "var(--cazura-panel)",
+                borderColor: "var(--cazura-border)",
+              }}
+            >
+              <p
+                className="text-[15px] font-bold"
+                style={{ color: "var(--cazura-text)" }}
               >
-                <span>
-                  {h.goalName}{" "}
-                  <span className="text-muted-foreground">
-                    · {h.occurredAt.toLocaleString()}
-                  </span>
-                </span>
-                <span className="font-medium text-emerald-600">
-                  +{formatInr(h.amount)}
-                </span>
-              </li>
-            ))}
-            {history.length === 0 ? (
-              <li className="text-muted-foreground">No contributions yet.</li>
-            ) : null}
-          </ul>
-        </CardContent>
-      </Card>
+                No goals yet
+              </p>
+              <p className="max-w-sm text-sm" style={{ color: "var(--cazura-muted)" }}>
+                Create a goal with &quot;New Goal&quot; to start tracking savings and
+                contributions.
+              </p>
+            </div>
+          ) : (
+            <div
+              className="overflow-hidden rounded-xl border p-2 sm:p-3"
+              style={{
+                background: "var(--cazura-panel)",
+                borderColor: "var(--cazura-border)",
+              }}
+            >
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+                {goalList.map((g) => (
+                  <GoalProgressCard
+                    key={g.id}
+                    id={g.id}
+                    goals={goalOptions}
+                    name={g.name}
+                    savedAmount={g.savedAmount}
+                    targetAmount={g.targetAmount}
+                    targetDate={g.targetDate}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <GoalsSavingsChartCard series={series} />
+        </div>
+
+        <div className="flex w-full shrink-0 flex-col gap-4 lg:w-[340px]">
+          <GoalsHistorySidebar history={history} />
+        </div>
+      </div>
     </div>
   );
 }

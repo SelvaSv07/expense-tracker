@@ -22,11 +22,22 @@ import { useState } from "react";
 
 export function ContributionForm({
   goals,
+  layout = "inline",
+  defaultGoalId,
+  onSuccess,
 }: {
   goals: { id: string; name: string }[];
+  layout?: "inline" | "stack";
+  /** When set (e.g. opening from a goal card), pre-select this goal. */
+  defaultGoalId?: string;
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
-  const [goalId, setGoalId] = useState(goals[0]?.id ?? "");
+  const initialGoal =
+    defaultGoalId && goals.some((g) => g.id === defaultGoalId)
+      ? defaultGoalId
+      : (goals[0]?.id ?? "");
+  const [goalId, setGoalId] = useState(initialGoal);
   const [amount, setAmount] = useState("");
   const [occurredAt, setOccurredAt] = useState(() =>
     toDatetimeLocalValue(new Date()),
@@ -42,18 +53,36 @@ export function ContributionForm({
       occurredAt: new Date(occurredAt),
     });
     setAmount("");
+    onSuccess?.();
     router.refresh();
   }
 
   if (goals.length === 0) return null;
 
+  const isStack = layout === "stack";
+  const selectedGoal = goals.find((g) => g.id === goalId);
+
   return (
-    <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-3">
+    <form
+      onSubmit={onSubmit}
+      className={
+        isStack ? "flex flex-col gap-3" : "flex flex-wrap items-end gap-3"
+      }
+    >
       <div className="space-y-2">
         <Label>Goal</Label>
-        <Select value={goalId} onValueChange={(v) => v && setGoalId(v)}>
-          <SelectTrigger className="w-[220px]">
-            <SelectValue />
+        <Select
+          value={goalId}
+          onValueChange={(v) => {
+            if (v) setGoalId(v);
+          }}
+        >
+          <SelectTrigger className={isStack ? "w-full min-w-0" : "w-[220px]"}>
+            <SelectValue placeholder="Choose goal">
+              {selectedGoal ? (
+                <span className="truncate">{selectedGoal.name}</span>
+              ) : null}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {goals.map((g) => (
@@ -67,17 +96,23 @@ export function ContributionForm({
       <div className="space-y-2">
         <Label>Amount (₹)</Label>
         <Input
-          className="w-[120px]"
+          className={isStack ? "w-full" : "w-[120px]"}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
         />
       </div>
-      <div className="flex flex-wrap items-end gap-2">
+      <div
+        className={
+          isStack
+            ? "flex flex-col gap-3 sm:flex-row sm:items-end"
+            : "flex flex-wrap items-end gap-2"
+        }
+      >
         <div className="space-y-2">
           <Label htmlFor="contribution-date">Date</Label>
           <DatePicker
             id="contribution-date"
-            className="w-[140px]"
+            className={isStack ? "w-full sm:w-[140px]" : "w-[140px]"}
             value={occurredAt}
             onChange={setOccurredAt}
           />
@@ -86,13 +121,15 @@ export function ContributionForm({
           <Label htmlFor="contribution-time">Time</Label>
           <TimeField
             id="contribution-time"
-            className="w-[120px]"
+            className={isStack ? "w-full sm:w-[120px]" : "w-[120px]"}
             value={occurredAt}
             onChange={setOccurredAt}
           />
         </div>
       </div>
-      <Button type="submit">Add contribution</Button>
+      <Button type="submit" className={isStack ? "w-full" : undefined}>
+        Add contribution
+      </Button>
     </form>
   );
 }
