@@ -28,6 +28,7 @@ export default async function SettingsPage() {
           name: c.name,
           type: c.type,
           icon: c.icon,
+          color: c.color,
         }))}
         usage={usage}
       />

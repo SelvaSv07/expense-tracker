@@ -2,6 +2,10 @@
 
 import { addGoalContribution } from "@/actions/goals";
 import { Button } from "@/components/ui/button";
+import {
+  DatetimePicker,
+  toDatetimeLocalValue,
+} from "@/components/ui/datetime-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -23,8 +27,8 @@ export function ContributionForm({
   const router = useRouter();
   const [goalId, setGoalId] = useState(goals[0]?.id ?? "");
   const [amount, setAmount] = useState("");
-  const [occurredAt, setOccurredAt] = useState(
-    new Date().toISOString().slice(0, 16),
+  const [occurredAt, setOccurredAt] = useState(() =>
+    toDatetimeLocalValue(new Date()),
   );
 
   async function onSubmit(e: React.FormEvent) {
@@ -68,11 +72,12 @@ export function ContributionForm({
         />
       </div>
       <div className="space-y-2">
-        <Label>When</Label>
-        <Input
-          type="datetime-local"
+        <Label htmlFor="contribution-when">When</Label>
+        <DatetimePicker
+          id="contribution-when"
+          className="w-[220px]"
           value={occurredAt}
-          onChange={(e) => setOccurredAt(e.target.value)}
+          onChange={setOccurredAt}
         />
       </div>
       <Button type="submit">Add contribution</Button>

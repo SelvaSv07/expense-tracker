@@ -2,6 +2,7 @@
 
 import { db } from "@/db";
 import { budgets, categories, transactions } from "@/db/schema";
+import { categoryColorSchema } from "@/lib/category-color";
 import { CATEGORY_ICON_OPTIONS } from "@/lib/category-icon";
 import { getSession } from "@/lib/session";
 import { and, eq } from "drizzle-orm";
@@ -13,9 +14,10 @@ const iconSchema = z.enum(
 );
 
 const createSchema = z.object({
-  name: z.string().min(1).max(80),
+  name: z.string().min(1, "Name is required").max(80),
   type: z.enum(["income", "expense"]),
   icon: iconSchema,
+  color: categoryColorSchema,
 });
 
 export async function createCategory(input: z.infer<typeof createSchema>) {
@@ -29,6 +31,7 @@ export async function createCategory(input: z.infer<typeof createSchema>) {
     name: parsed.name.trim(),
     type: parsed.type,
     icon: parsed.icon,
+    color: parsed.color,
   });
 
   revalidatePath("/settings");

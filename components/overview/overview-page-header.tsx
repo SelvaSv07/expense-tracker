@@ -11,10 +11,12 @@ export function OverviewPageHeader({
   preset,
   basePath,
   monthKey,
+  custom,
 }: {
   preset: TimePreset;
   basePath: string;
   monthKey?: string;
+  custom?: { from: Date; to: Date };
 }) {
   return (
     <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between">
@@ -38,6 +40,7 @@ export function OverviewPageHeader({
           basePath={basePath}
           variant="cazura"
           monthKey={monthKey}
+          custom={custom}
         />
         <Link
           href="/transactions"

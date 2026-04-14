@@ -16,11 +16,14 @@ export function ExportMenu({
   preset,
   custom,
   monthKey,
+  variant = "default",
 }: {
   preset: TimePreset;
   custom?: { from: Date; to: Date };
   monthKey?: string;
+  variant?: "default" | "cazura";
 }) {
+  const cazura = variant === "cazura";
   const q = timeQueryString(preset, custom, { monthKey });
   const base = `/api/export/transactions?${q}`;
 
@@ -29,12 +32,29 @@ export function ExportMenu({
       <DropdownMenuTrigger
         className={cn(
           buttonVariants({ variant: "outline", size: "sm" }),
-          "gap-2",
+          cazura
+            ? "h-8 gap-1.5 rounded-lg border px-3 text-xs font-medium shadow-none"
+            : "gap-2",
         )}
+        style={
+          cazura
+            ? {
+                background: "var(--cazura-panel)",
+                borderColor: "var(--cazura-border)",
+                color: "var(--cazura-text)",
+              }
+            : undefined
+        }
       >
-        <Download className="size-4" />
+        <Download
+          className={cazura ? "size-3.5" : "size-4"}
+          strokeWidth={cazura ? 1.8 : 2}
+        />
         Export
-        <ChevronDown className="size-3 opacity-60" />
+        <ChevronDown
+          className={cn("size-3 opacity-60", cazura && "size-[13px]")}
+          strokeWidth={2}
+        />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem

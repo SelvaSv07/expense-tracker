@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CategoryIcon } from "@/lib/category-icon";
+import { CategoryIconShelf } from "@/lib/category-color";
 import { parseInrInput } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { Plus } from "lucide-react";
@@ -131,9 +131,11 @@ export function AddBudgetDialog({
                 <SelectValue placeholder="Choose category">
                   {selected ? (
                     <span className="flex items-center gap-2">
-                      <CategoryIcon
-                        name={selected.icon}
-                        className="size-4 shrink-0"
+                      <CategoryIconShelf
+                        icon={selected.icon}
+                        color={selected.color}
+                        className="size-8"
+                        iconClassName="size-4"
                       />
                       <span className="truncate">{selected.name}</span>
                     </span>
@@ -143,9 +145,11 @@ export function AddBudgetDialog({
               <SelectContent>
                 {expenseCategories.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    <CategoryIcon
-                      name={c.icon}
-                      className="size-4 shrink-0"
+                    <CategoryIconShelf
+                      icon={c.icon}
+                      color={c.color}
+                      className="size-8"
+                      iconClassName="size-4"
                     />
                     {c.name}
                   </SelectItem>

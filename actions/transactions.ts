@@ -11,6 +11,7 @@ const schema = z.object({
   categoryId: z.string(),
   amount: z.number().int().positive(),
   occurredAt: z.coerce.date(),
+  transactionName: z.string().optional(),
   note: z.string().optional(),
   paymentMethod: z.string().optional(),
 });
@@ -39,7 +40,8 @@ export async function createTransaction(input: z.infer<typeof schema>) {
     categoryId: parsed.categoryId,
     amount: parsed.amount,
     occurredAt: parsed.occurredAt,
-    note: parsed.note ?? null,
+    transactionName: parsed.transactionName?.trim() || null,
+    note: parsed.note?.trim() || null,
     paymentMethod: parsed.paymentMethod ?? null,
   });
 

@@ -80,6 +80,7 @@ export default async function BudgetPage({
     id: c.id,
     name: c.name,
     icon: c.icon,
+    color: c.color,
   }));
 
   return (
@@ -195,6 +196,7 @@ export default async function BudgetPage({
                     <TransactionCategoryLabel
                       name={row.categoryName}
                       icon={row.categoryIcon}
+                      color={row.categoryColor}
                     />
                   </TableCell>
                   <TableCell className="text-right">

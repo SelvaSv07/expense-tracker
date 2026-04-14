@@ -4,13 +4,14 @@ import { createTransaction } from "@/actions/transactions";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { DatetimePicker, toDatetimeLocalValue } from "@/components/ui/datetime-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -21,56 +22,88 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CategoryIcon } from "@/lib/category-icon";
+import { CategoryIconShelf } from "@/lib/category-color";
 import { parseInrInput } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus } from "lucide-react";
+import { Plus, TrendingDown, TrendingUp } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import {
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
-
-function toDatetimeLocalValue(d: Date) {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 const schema = z.object({
   kind: z.enum(["income", "expense"]),
   categoryId: z.string().min(1, "Choose a category"),
-  amount: z.string().min(1),
-  occurredAt: z.string().min(1),
+  amount: z.string().min(1, "Enter an amount"),
+  occurredAt: z.string().min(1, "Choose date and time"),
+  transactionName: z.string().optional(),
   note: z.string().optional(),
   paymentMethod: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
 
+function mergeDialogOpenTrigger(
+  node: ReactNode,
+  onOpen: () => void,
+): ReactNode {
+  if (!isValidElement(node)) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className={cn(buttonVariants({ size: "sm" }), "cursor-pointer gap-1")}
+      >
+        {node}
+      </button>
+    );
+  }
+  const el = node as ReactElement<{
+    onClick?: (e: React.MouseEvent) => void;
+    className?: string;
+  }>;
+  return cloneElement(el, {
+    className: cn("cursor-pointer", el.props.className),
+    onClick: (e: React.MouseEvent) => {
+      el.props.onClick?.(e);
+      onOpen();
+    },
+  });
+}
+
 export type TransactionCategoryOption = {
   id: string;
   name: string;
   type: string;
   icon: string | null;
+  color: string;
 };
 
 export function AddTransactionDialog({
   categories,
+  trigger,
 }: {
   categories: TransactionCategoryOption[];
+  /** Optional trigger; defaults to “Add transaction” button. */
+  trigger?: ReactNode;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const defaults = useMemo(() => {
     const expense = categories.filter((c) => c.type === "expense");
     const income = categories.filter((c) => c.type === "income");
-    if (expense.length > 0) {
-      return { kind: "expense" as const, categoryId: expense[0]!.id };
-    }
-    if (income.length > 0) {
-      return { kind: "income" as const, categoryId: income[0]!.id };
-    }
-    return { kind: "expense" as const, categoryId: "" };
+    if (expense.length > 0) return { kind: "expense" as const };
+    if (income.length > 0) return { kind: "income" as const };
+    return { kind: "expense" as const };
   }, [categories]);
 
   const expenseCount = useMemo(
@@ -83,30 +116,35 @@ export function AddTransactionDialog({
   );
 
   const form = useForm<FormValues>({
+    mode: "onSubmit",
+    reValidateMode: "onChange",
     resolver: zodResolver(schema),
     defaultValues: {
       kind: defaults.kind,
-      categoryId: defaults.categoryId,
+      categoryId: "",
       occurredAt: toDatetimeLocalValue(new Date()),
       amount: "",
+      transactionName: "",
       note: "",
       paymentMethod: "Credit Card",
     },
   });
 
   const kind = form.watch("kind");
+  const { isSubmitted } = form.formState;
   const filteredCategories = useMemo(
-    () => categories.filter((c) => c.type === kind),
+    () =>
+      categories
+        .filter((c) => c.type === kind)
+        .sort((a, b) => a.name.localeCompare(b.name)),
     [categories, kind],
   );
 
   useEffect(() => {
     const currentId = form.getValues("categoryId");
     if (filteredCategories.some((c) => c.id === currentId)) return;
-    form.setValue("categoryId", filteredCategories[0]?.id ?? "", {
-      shouldValidate: true,
-    });
-  }, [kind, filteredCategories, form]);
+    form.setValue("categoryId", "", { shouldValidate: isSubmitted });
+  }, [filteredCategories, form, isSubmitted]);
 
   async function onSubmit(values: FormValues) {
     const amt = parseInrInput(values.amount);
@@ -118,15 +156,17 @@ export function AddTransactionDialog({
       categoryId: values.categoryId,
       amount: amt,
       occurredAt: new Date(values.occurredAt),
+      transactionName: values.transactionName || undefined,
       note: values.note || undefined,
       paymentMethod: values.paymentMethod || undefined,
     });
     setOpen(false);
     form.reset({
       kind: defaults.kind,
-      categoryId: defaults.categoryId,
+      categoryId: "",
       occurredAt: toDatetimeLocalValue(new Date()),
       amount: "",
+      transactionName: "",
       note: "",
       paymentMethod: "Credit Card",
     });
@@ -142,31 +182,35 @@ export function AddTransactionDialog({
           const d = defaults;
           form.reset({
             kind: d.kind,
-            categoryId: d.categoryId,
+            categoryId: "",
             occurredAt: toDatetimeLocalValue(new Date()),
             amount: "",
+            transactionName: "",
             note: "",
             paymentMethod: "Credit Card",
           });
         }
       }}
     >
-      <DialogTrigger
-        className={cn(buttonVariants({ size: "sm" }), "gap-1")}
-      >
-        <Plus className="size-4" />
-        Add transaction
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
+      {trigger ? (
+        mergeDialogOpenTrigger(trigger, () => setOpen(true))
+      ) : (
+        <DialogTrigger
+          className={cn(buttonVariants({ size: "sm" }), "cursor-pointer gap-1")}
+        >
+          <Plus className="size-4" />
+          Add transaction
+        </DialogTrigger>
+      )}
+      <DialogContent className="gap-3 px-4 pt-3 pb-4">
+        <DialogHeader className="pr-8 pb-2 text-left">
           <DialogTitle>Add transaction</DialogTitle>
-          <DialogDescription>
-            Choose income or expense, then a category. Amounts are always
-            positive.
-          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="flex flex-col gap-3"
+        >
+          <div className="space-y-2 pb-4">
             <Label>Type</Label>
             <Controller
               control={form.control}
@@ -177,24 +221,57 @@ export function AddTransactionDialog({
                   onValueChange={(v) => {
                     const nextKind = v as "income" | "expense";
                     field.onChange(nextKind);
-                    const nextList = categories.filter(
-                      (c) => c.type === nextKind,
-                    );
+                    const nextList = categories
+                      .filter((c) => c.type === nextKind)
+                      .sort((a, b) => a.name.localeCompare(b.name));
                     form.setValue("categoryId", nextList[0]?.id ?? "", {
-                      shouldValidate: true,
+                      shouldValidate: form.formState.isSubmitted,
                     });
                   }}
                 >
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="expense" disabled={expenseCount === 0}>
-                      Expense
+                  <TabsList
+                    variant="line"
+                    className="grid h-auto w-full grid-cols-2 gap-2 bg-transparent p-0"
+                  >
+                    <TabsTrigger
+                      value="expense"
+                      disabled={expenseCount === 0}
+                      className={cn(
+                        "h-11 cursor-pointer gap-2 border-2 py-2 shadow-none after:hidden",
+                        "border-[color-mix(in_srgb,var(--cazura-red)35%,transparent)] bg-[color-mix(in_srgb,var(--cazura-red)8%,transparent)]",
+                        "text-[var(--cazura-red)] [&_svg]:text-[var(--cazura-red)]",
+                        "data-active:!border-[var(--cazura-red)] data-active:!bg-[var(--cazura-red)] data-active:!text-white data-active:!shadow-none data-active:[&_svg]:!text-white",
+                        "hover:opacity-90 disabled:cursor-not-allowed",
+                      )}
+                    >
+                      <TrendingDown className="size-4 shrink-0" />
+                      Expenses
                     </TabsTrigger>
-                    <TabsTrigger value="income" disabled={incomeCount === 0}>
+                    <TabsTrigger
+                      value="income"
+                      disabled={incomeCount === 0}
+                      className={cn(
+                        "h-11 cursor-pointer gap-2 border-2 py-2 shadow-none after:hidden",
+                        "border-[color-mix(in_srgb,var(--cazura-teal-mid)35%,transparent)] bg-[color-mix(in_srgb,var(--cazura-teal-mid)10%,transparent)]",
+                        "text-[var(--cazura-teal-mid)] [&_svg]:text-[var(--cazura-teal-mid)]",
+                        "data-active:!border-[var(--cazura-teal-mid)] data-active:!bg-[var(--cazura-teal-mid)] data-active:!text-white data-active:!shadow-none data-active:[&_svg]:!text-white",
+                        "hover:opacity-90 disabled:cursor-not-allowed",
+                      )}
+                    >
+                      <TrendingUp className="size-4 shrink-0" />
                       Income
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
               )}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="transactionName">Transaction name</Label>
+            <Input
+              id="transactionName"
+              {...form.register("transactionName")}
+              placeholder="e.g. Weekly groceries"
             />
           </div>
           <div className="space-y-2">
@@ -208,16 +285,19 @@ export function AddTransactionDialog({
                 );
                 return (
                   <Select
-                    value={field.value ?? ""}
+                    modal={false}
+                    value={field.value ? field.value : null}
                     onValueChange={(v) => field.onChange(v ?? "")}
                   >
-                    <SelectTrigger className="w-full min-w-0">
+                    <SelectTrigger className="w-full min-w-0 cursor-pointer">
                       <SelectValue placeholder="Choose category">
                         {selected ? (
                           <span className="flex items-center gap-2">
-                            <CategoryIcon
-                              name={selected.icon}
-                              className="size-4 shrink-0"
+                            <CategoryIconShelf
+                              icon={selected.icon}
+                              color={selected.color}
+                              className="size-8"
+                              iconClassName="size-4"
                             />
                             <span className="truncate">{selected.name}</span>
                           </span>
@@ -226,10 +306,16 @@ export function AddTransactionDialog({
                     </SelectTrigger>
                     <SelectContent>
                       {filteredCategories.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          <CategoryIcon
-                            name={c.icon}
-                            className="size-4 shrink-0"
+                        <SelectItem
+                          key={c.id}
+                          value={c.id}
+                          className="cursor-pointer"
+                        >
+                          <CategoryIconShelf
+                            icon={c.icon}
+                            color={c.color}
+                            className="size-8"
+                            iconClassName="size-4"
                           />
                           {c.name}
                         </SelectItem>
@@ -239,19 +325,23 @@ export function AddTransactionDialog({
                 );
               }}
             />
-            {form.formState.errors.categoryId ? (
-              <p className="text-destructive text-sm">
+            {isSubmitted && form.formState.errors.categoryId ? (
+              <p className="text-destructive pl-1 text-sm">
                 {form.formState.errors.categoryId.message}
               </p>
             ) : null}
-            {filteredCategories.length === 0 ? (
+            {categories.length === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                No categories yet. Add one in Settings.
+              </p>
+            ) : filteredCategories.length === 0 ? (
               <p className="text-muted-foreground text-sm">
                 No {kind} categories yet. Add one in Settings.
               </p>
             ) : null}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="amount">Amount (₹)</Label>
+            <Label htmlFor="amount">Amount (INR)</Label>
             <Input id="amount" {...form.register("amount")} placeholder="0.00" />
             {form.formState.errors.amount ? (
               <p className="text-destructive text-sm">
@@ -261,10 +351,17 @@ export function AddTransactionDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="occurredAt">Date & time</Label>
-            <Input
-              id="occurredAt"
-              type="datetime-local"
-              {...form.register("occurredAt")}
+            <Controller
+              control={form.control}
+              name="occurredAt"
+              render={({ field }) => (
+                <DatetimePicker
+                  id="occurredAt"
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                />
+              )}
             />
           </div>
           <div className="space-y-2">
@@ -275,9 +372,17 @@ export function AddTransactionDialog({
             <Label htmlFor="note">Note</Label>
             <Input id="note" {...form.register("note")} />
           </div>
-          <DialogFooter>
+          <DialogFooter className="mt-0 gap-2 sm:justify-end">
+            <DialogClose
+              render={
+                <Button type="button" variant="outline" className="cursor-pointer" />
+              }
+            >
+              Cancel
+            </DialogClose>
             <Button
               type="submit"
+              className="cursor-pointer"
               disabled={filteredCategories.length === 0}
             >
               Save

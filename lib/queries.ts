@@ -347,12 +347,14 @@ export async function listTransactionsWithCategory(
       id: transactions.id,
       amount: transactions.amount,
       occurredAt: transactions.occurredAt,
+      transactionName: transactions.transactionName,
       note: transactions.note,
       paymentMethod: transactions.paymentMethod,
       categoryId: transactions.categoryId,
       categoryName: categories.name,
       categoryType: categories.type,
       categoryIcon: categories.icon,
+      categoryColor: categories.color,
     })
     .from(transactions)
     .innerJoin(categories, eq(transactions.categoryId, categories.id))
@@ -538,6 +540,7 @@ export async function getBudgetBreakdownForMonth(
       amount: budgets.amount,
       categoryName: categories.name,
       categoryIcon: categories.icon,
+      categoryColor: categories.color,
     })
     .from(budgets)
     .innerJoin(categories, eq(budgets.categoryId, categories.id))
@@ -576,6 +579,7 @@ export async function getBudgetBreakdownForMonth(
       categoryId: b.categoryId,
       categoryName: b.categoryName,
       categoryIcon: b.categoryIcon,
+      categoryColor: b.categoryColor,
       budgeted: b.amount,
       spent: s,
       pct,

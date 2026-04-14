@@ -23,8 +23,8 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 const schema = z.object({
-  name: z.string().min(1),
-  targetAmount: z.string().min(1),
+  name: z.string().min(1, "Enter a goal name"),
+  targetAmount: z.string().min(1, "Enter a target amount"),
   targetDate: z.string().optional(),
   notes: z.string().optional(),
 });

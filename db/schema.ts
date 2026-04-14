@@ -110,6 +110,8 @@ export const categories = pgTable(
     name: text("name").notNull(),
     type: text("type").notNull(), // "income" | "expense"
     icon: text("icon"),
+    /** Hex fill color for icon tile (e.g. #22c55e). */
+    color: text("color").notNull().default("#64748b"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("categories_user_id_idx").on(t.userId)],
@@ -127,6 +129,7 @@ export const transactions = pgTable(
       .references(() => categories.id, { onDelete: "restrict" }),
     amount: integer("amount").notNull(),
     occurredAt: timestamp("occurred_at").notNull(),
+    transactionName: text("transaction_name"),
     note: text("note"),
     paymentMethod: text("payment_method"),
     createdAt: timestamp("created_at").notNull().defaultNow(),

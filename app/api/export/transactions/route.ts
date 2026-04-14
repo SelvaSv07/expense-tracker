@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
       id: transactions.id,
       amount: transactions.amount,
       occurredAt: transactions.occurredAt,
+      transactionName: transactions.transactionName,
       note: transactions.note,
       paymentMethod: transactions.paymentMethod,
       categoryName: categories.name,
@@ -52,6 +53,7 @@ export async function GET(request: NextRequest) {
       { header: "Date", key: "date", width: 20 },
       { header: "Amount (INR)", key: "amount", width: 14 },
       { header: "Method", key: "method", width: 16 },
+      { header: "Transaction name", key: "transactionName", width: 28 },
       { header: "Note", key: "note", width: 30 },
     ];
     for (const r of rows) {
@@ -61,6 +63,7 @@ export async function GET(request: NextRequest) {
         date: r.occurredAt.toISOString(),
         amount: (r.amount / 100).toFixed(2),
         method: r.paymentMethod ?? "",
+        transactionName: r.transactionName ?? "",
         note: r.note ?? "",
       });
     }
@@ -96,7 +99,12 @@ export async function GET(request: NextRequest) {
     );
     y -= 24;
     for (const r of rows.slice(0, 40)) {
-      const line = `${r.categoryName} | ${r.categoryType} | ${r.occurredAt.toLocaleString()} | ₹${(r.amount / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const amt = (r.amount / 100).toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      // Standard PDF fonts (Helvetica) cannot encode ₹ (U+20B9); use ASCII "Rs."
+      const line = `${r.categoryName} | ${r.categoryType} | ${r.occurredAt.toLocaleString()} | Rs. ${amt}`;
       page.drawText(line.slice(0, 90), {
         x: left,
         y,

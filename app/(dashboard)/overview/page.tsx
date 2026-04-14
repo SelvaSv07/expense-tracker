@@ -82,6 +82,7 @@ export default async function OverviewPage({
         preset={preset}
         basePath="/overview"
         monthKey={monthKey}
+        custom={custom}
       />
 
       <OverviewBalanceBanner balance={balance} todaySpend={todaySpend} />

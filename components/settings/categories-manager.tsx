@@ -2,6 +2,10 @@
 
 import { createCategory, deleteCategory } from "@/actions/categories";
 import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  CATEGORY_COLOR_OPTIONS,
+  CategoryIconShelf,
+} from "@/lib/category-color";
 import { CATEGORY_ICON_OPTIONS, CategoryIcon } from "@/lib/category-icon";
 import {
   Card,
@@ -54,6 +58,7 @@ const createFormSchema = z.object({
   name: z.string().min(1, "Name is required").max(80),
   type: z.enum(["income", "expense"]),
   icon: z.enum(CATEGORY_ICON_OPTIONS as unknown as [string, ...string[]]),
+  color: z.enum(CATEGORY_COLOR_OPTIONS as unknown as [string, ...string[]]),
 });
 
 type CreateFormValues = z.infer<typeof createFormSchema>;
@@ -63,6 +68,7 @@ type CategoryRow = {
   name: string;
   type: string;
   icon: string | null;
+  color: string;
 };
 
 export function CategoriesManager({
@@ -85,10 +91,12 @@ export function CategoriesManager({
       name: "",
       type: "expense",
       icon: "tag",
+      color: CATEGORY_COLOR_OPTIONS[0],
     },
   });
 
   const selectedIcon = form.watch("icon");
+  const selectedColor = form.watch("color");
 
   async function onCreate(values: CreateFormValues) {
     setFormError(null);
@@ -96,7 +104,12 @@ export function CategoriesManager({
       try {
         await createCategory(values);
         setAddOpen(false);
-        form.reset({ name: "", type: "expense", icon: "tag" });
+        form.reset({
+          name: "",
+          type: "expense",
+          icon: "tag",
+          color: CATEGORY_COLOR_OPTIONS[0],
+        });
         router.refresh();
       } catch (e) {
         setFormError(e instanceof Error ? e.message : "Something went wrong");
@@ -147,8 +160,8 @@ export function CategoriesManager({
             <DialogHeader>
               <DialogTitle>New category</DialogTitle>
               <DialogDescription>
-                Choose a name, whether it counts as income or expense, and an
-                icon.
+                Choose a name, type, color, and icon. The color appears behind
+                the icon everywhere this category is shown.
               </DialogDescription>
             </DialogHeader>
             <form
@@ -192,6 +205,38 @@ export function CategoriesManager({
                 />
               </div>
               <div className="space-y-2">
+                <Label>Color</Label>
+                <div className="grid grid-cols-6 gap-2">
+                  {CATEGORY_COLOR_OPTIONS.map((hex) => (
+                    <button
+                      key={hex}
+                      type="button"
+                      title={hex}
+                      onClick={() =>
+                        form.setValue("color", hex, { shouldValidate: true })
+                      }
+                      className={cn(
+                        "flex size-10 items-center justify-center rounded-lg border-2 border-transparent",
+                        selectedColor === hex && "border-primary",
+                      )}
+                    >
+                      <span
+                        className="size-6 rounded-md"
+                        style={{
+                          backgroundColor: `color-mix(in srgb, ${hex} 35%, transparent)`,
+                          boxShadow: `inset 0 0 0 1px ${hex}`,
+                        }}
+                      />
+                    </button>
+                  ))}
+                </div>
+                {form.formState.errors.color ? (
+                  <p className="text-destructive text-sm">
+                    {form.formState.errors.color.message}
+                  </p>
+                ) : null}
+              </div>
+              <div className="space-y-2">
                 <Label>Icon</Label>
                 <Popover>
                   <PopoverTrigger
@@ -200,9 +245,11 @@ export function CategoriesManager({
                       "w-full justify-start gap-2",
                     )}
                   >
-                    <CategoryIcon
-                      name={selectedIcon}
-                      className="size-4 shrink-0"
+                    <CategoryIconShelf
+                      icon={selectedIcon}
+                      color={selectedColor}
+                      className="size-8"
+                      iconClassName="size-4"
                     />
                     <span className="text-muted-foreground text-sm">
                       {selectedIcon}
@@ -281,12 +328,12 @@ export function CategoriesManager({
               return (
                 <TableRow key={c.id}>
                   <TableCell>
-                    <div className="bg-muted flex size-8 items-center justify-center rounded-md">
-                      <CategoryIcon
-                        name={c.icon}
-                        className="text-foreground size-4"
-                      />
-                    </div>
+                    <CategoryIconShelf
+                      icon={c.icon}
+                      color={c.color}
+                      className="size-8"
+                      iconClassName="size-4"
+                    />
                   </TableCell>
                   <TableCell className="font-medium">{c.name}</TableCell>
                   <TableCell className="text-muted-foreground capitalize">

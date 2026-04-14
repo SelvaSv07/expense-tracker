@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 const goalSchema = z.object({
-  name: z.string().min(1),
+  name: z.string().min(1, "Name is required"),
   targetAmount: z.number().int().positive(),
   targetDate: z.coerce.date().optional(),
   notes: z.string().optional(),
