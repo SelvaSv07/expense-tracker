@@ -35,6 +35,7 @@ export async function createCategory(input: z.infer<typeof createSchema>) {
   });
 
   revalidatePath("/settings");
+  revalidatePath("/settings/categories");
   revalidatePath("/transactions");
   revalidatePath("/budget");
   revalidatePath("/overview");
@@ -83,6 +84,7 @@ export async function deleteCategory(categoryId: string) {
   await db.delete(categories).where(eq(categories.id, categoryId));
 
   revalidatePath("/settings");
+  revalidatePath("/settings/categories");
   revalidatePath("/transactions");
   revalidatePath("/budget");
   revalidatePath("/overview");

@@ -15,9 +15,11 @@ const BUBBLE_LAYOUT = [
 export function ExpenseBreakdownCazura({
   breakdown,
   categoryIcons,
+  categoryColors,
 }: {
   breakdown: { name: string; value: number }[];
   categoryIcons: Record<string, string | null>;
+  categoryColors: Record<string, string>;
 }) {
   const sorted = [...breakdown].sort((a, b) => b.value - a.value);
   const total = sorted.reduce((s, x) => s + x.value, 0);

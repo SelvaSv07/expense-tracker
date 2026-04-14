@@ -1,37 +1,82 @@
-import { CategoriesManager } from "@/components/settings/categories-manager";
-import { getCategoryUsage, listCategories } from "@/lib/queries";
 import { getSession } from "@/lib/session";
+import { ChevronRight, Tags } from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+
+const settingsOptions = [
+  {
+    href: "/settings/categories",
+    title: "Categories",
+    description:
+      "Income and expense labels, icons, and colors used across transactions and budgets.",
+    icon: Tags,
+  },
+] as const;
 
 export default async function SettingsPage() {
   const session = await getSession();
   if (!session?.user) redirect("/sign-in");
-
-  const [categories, usage] = await Promise.all([
-    listCategories(session.user.id),
-    getCategoryUsage(session.user.id),
-  ]);
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Preferences and data you use across Cazura. More options will live
-          here later.
+          Manage your account preferences and data. More options will appear here
+          over time.
         </p>
       </div>
 
-      <CategoriesManager
-        categories={categories.map((c) => ({
-          id: c.id,
-          name: c.name,
-          type: c.type,
-          icon: c.icon,
-          color: c.color,
-        }))}
-        usage={usage}
-      />
+      <div className="flex flex-col gap-2">
+        <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+          General
+        </p>
+        <ul className="flex flex-col gap-2">
+          {settingsOptions.map((item) => (
+            <li key={item.href}>
+              <Link
+                href={item.href}
+                className="flex items-center gap-3 rounded-xl border p-4 transition-opacity hover:opacity-90"
+                style={{
+                  background: "var(--cazura-panel)",
+                  borderColor: "var(--cazura-border)",
+                }}
+              >
+                <div
+                  className="flex size-10 shrink-0 items-center justify-center rounded-lg border"
+                  style={{
+                    background: "var(--cazura-canvas)",
+                    borderColor: "var(--cazura-border)",
+                  }}
+                >
+                  <item.icon
+                    className="size-5 text-[var(--cazura-muted)]"
+                    strokeWidth={1.8}
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="font-semibold text-[var(--cazura-text)]"
+                    style={{ fontSize: 15 }}
+                  >
+                    {item.title}
+                  </p>
+                  <p
+                    className="mt-0.5 text-sm leading-snug"
+                    style={{ color: "var(--cazura-muted)" }}
+                  >
+                    {item.description}
+                  </p>
+                </div>
+                <ChevronRight
+                  className="size-5 shrink-0 text-[var(--cazura-label)]"
+                  strokeWidth={2}
+                />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }

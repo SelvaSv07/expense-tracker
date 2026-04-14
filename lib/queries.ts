@@ -9,6 +9,7 @@ import {
 } from "@/db/schema";
 import type { MonthRef, TimePreset } from "@/lib/time-range";
 import { getRangeFromPreset, getPreviousRange } from "@/lib/time-range";
+import { startOfMonth, subMonths } from "date-fns";
 import { and, count, desc, eq, gte, lte } from "drizzle-orm";
 
 export async function getOpeningBalanceForUser(userId: string): Promise<number> {
@@ -516,6 +517,41 @@ export async function getBudgetPercentByMonth(userId: string, year: number) {
       full: 100,
     };
   });
+}
+
+/** Rolling window ending at `anchorMonth` (any day in that month). */
+export async function getBudgetPercentLastNMonths(
+  userId: string,
+  anchorMonth: Date,
+  count: number,
+) {
+  const anchor = startOfMonth(anchorMonth);
+  const ticks = Array.from({ length: count }, (_, i) =>
+    subMonths(anchor, count - 1 - i),
+  );
+  const years = [...new Set(ticks.map((d) => d.getFullYear()))];
+  const byYear = new Map<
+    number,
+    Awaited<ReturnType<typeof getBudgetVsSpentByMonth>>
+  >();
+  await Promise.all(
+    years.map(async (y) => {
+      byYear.set(y, await getBudgetVsSpentByMonth(userId, y));
+    }),
+  );
+  const out: { month: string; pct: number }[] = [];
+  for (const d of ticks) {
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const row = byYear.get(y)?.[m];
+    if (!row) continue;
+    const pct =
+      row.budgeted > 0
+        ? Math.min(100, Math.round((row.spent / row.budgeted) * 100))
+        : 0;
+    out.push({ month: row.month, pct });
+  }
+  return out;
 }
 
 export async function getBudgetBreakdownForMonth(

@@ -6,7 +6,7 @@ import {
   CATEGORY_COLOR_OPTIONS,
   CategoryIconShelf,
 } from "@/lib/category-color";
-import { CATEGORY_ICON_OPTIONS, CategoryIcon } from "@/lib/category-icon";
+import { CATEGORY_ICON_OPTIONS } from "@/lib/category-icon";
 import {
   Card,
   CardContent,
@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -62,6 +62,14 @@ const createFormSchema = z.object({
 });
 
 type CreateFormValues = z.infer<typeof createFormSchema>;
+
+function formatCategoryIconLabel(iconId: string) {
+  return iconId
+    .split("-")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
 
 type CategoryRow = {
   id: string;
@@ -193,8 +201,10 @@ export function CategoriesManager({
                         field.onChange(v as "income" | "expense")
                       }
                     >
-                      <SelectTrigger>
-                        <SelectValue />
+                      <SelectTrigger className="w-full min-w-0">
+                        <SelectValue placeholder="Type">
+                          {field.value === "expense" ? "Expense" : "Income"}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="expense">Expense</SelectItem>
@@ -237,46 +247,62 @@ export function CategoriesManager({
                 ) : null}
               </div>
               <div className="space-y-2">
-                <Label>Icon</Label>
+                <Label htmlFor="category-icon-picker">Icon</Label>
                 <Popover>
                   <PopoverTrigger
+                    id="category-icon-picker"
                     className={cn(
-                      buttonVariants({ variant: "outline" }),
-                      "w-full justify-start gap-2",
+                      "w-full min-w-0 cursor-pointer rounded-lg border border-input bg-transparent p-0 text-sm shadow-xs transition-colors outline-none select-none",
+                      "hover:bg-accent/50 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                      "dark:bg-input/30 dark:hover:bg-input/50",
                     )}
                   >
-                    <CategoryIconShelf
-                      icon={selectedIcon}
-                      color={selectedColor}
-                      className="size-8"
-                      iconClassName="size-4"
-                    />
-                    <span className="text-muted-foreground text-sm">
-                      {selectedIcon}
+                    <span className="flex min-h-10 w-full items-center gap-3 py-2 pl-5 pr-3">
+                      <CategoryIconShelf
+                        icon={selectedIcon}
+                        color={selectedColor}
+                        className="size-8 shrink-0 self-center"
+                        iconClassName="size-4"
+                      />
+                      <span className="min-w-0 flex-1 truncate text-left text-sm font-medium leading-snug">
+                        {formatCategoryIconLabel(selectedIcon)}
+                      </span>
+                      <ChevronDown
+                        className="size-4 shrink-0 self-center text-muted-foreground"
+                        aria-hidden
+                      />
                     </span>
                   </PopoverTrigger>
-                  <PopoverContent className="w-80 p-0" align="start">
+                  <PopoverContent
+                    className="w-[min(calc(100vw-2rem),22rem)] p-0"
+                    align="start"
+                  >
+                    <div className="text-muted-foreground border-b px-3 py-2 text-xs font-medium">
+                      Choose an icon
+                    </div>
                     <ScrollArea className="h-56 p-2">
-                      <div className="grid grid-cols-6 gap-1">
+                      <div className="grid grid-cols-6 gap-1.5">
                         {CATEGORY_ICON_OPTIONS.map((iconName) => (
                           <button
                             key={iconName}
                             type="button"
-                            title={iconName}
+                            title={formatCategoryIconLabel(iconName)}
                             onClick={() => {
                               form.setValue("icon", iconName, {
                                 shouldValidate: true,
                               });
                             }}
                             className={cn(
-                              "flex size-10 items-center justify-center rounded-md border border-transparent hover:bg-muted",
+                              "flex size-11 items-center justify-center rounded-lg border border-transparent transition-colors hover:bg-muted/80",
                               selectedIcon === iconName &&
-                                "border-primary bg-muted",
+                                "border-primary bg-muted/60 ring-2 ring-primary/25",
                             )}
                           >
-                            <CategoryIcon
-                              name={iconName}
-                              className="size-4"
+                            <CategoryIconShelf
+                              icon={iconName}
+                              color={selectedColor}
+                              className="size-9"
+                              iconClassName="size-4"
                             />
                           </button>
                         ))}

@@ -2,22 +2,42 @@
 
 import { deleteBudget } from "@/actions/budgets";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { MoreHorizontal, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
-export function DeleteBudgetButton({ budgetId }: { budgetId: string }) {
+export function DeleteBudgetButton({
+  budgetId,
+  variant = "default",
+}: {
+  budgetId: string;
+  variant?: "default" | "cazura-icon";
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const cazura = variant === "cazura-icon";
 
   return (
     <Button
       type="button"
       variant="ghost"
       size="icon-sm"
-      className="text-destructive hover:text-destructive"
       disabled={pending}
       title="Remove budget for this month"
+      className={cn(
+        !cazura && "text-destructive hover:text-destructive",
+        cazura &&
+          "size-8 rounded-md border shadow-none hover:bg-[var(--cazura-canvas)]",
+      )}
+      style={
+        cazura
+          ? {
+              borderColor: "var(--cazura-border)",
+              color: "var(--cazura-label)",
+            }
+          : undefined
+      }
       onClick={() => {
         if (
           !confirm(
@@ -32,7 +52,11 @@ export function DeleteBudgetButton({ budgetId }: { budgetId: string }) {
         });
       }}
     >
-      <Trash2 className="size-4" />
+      {cazura ? (
+        <MoreHorizontal className="size-3" strokeWidth={2} />
+      ) : (
+        <Trash2 className="size-4" />
+      )}
     </Button>
   );
 }

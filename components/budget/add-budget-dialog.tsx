@@ -25,12 +25,57 @@ import { parseInrInput } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import {
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useState,
+  useTransition,
+  type ReactElement,
+  type ReactNode,
+} from "react";
+
+function mergeDialogOpenTrigger(
+  node: ReactNode,
+  onOpen: () => void,
+  disabled?: boolean,
+): ReactNode {
+  if (!isValidElement(node)) {
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => {
+          if (disabled) return;
+          onOpen();
+        }}
+        className={cn(buttonVariants({ size: "sm" }), "cursor-pointer gap-1")}
+      >
+        {node}
+      </button>
+    );
+  }
+  const el = node as ReactElement<{
+    onClick?: (e: React.MouseEvent) => void;
+    className?: string;
+    disabled?: boolean;
+  }>;
+  return cloneElement(el, {
+    className: cn("cursor-pointer", el.props.className),
+    disabled: disabled || el.props.disabled,
+    onClick: (e: React.MouseEvent) => {
+      el.props.onClick?.(e);
+      if (disabled || el.props.disabled) return;
+      onOpen();
+    },
+  });
+}
 
 export type BudgetExpenseCategory = {
   id: string;
   name: string;
   icon: string | null;
+  color: string;
 };
 
 function monthInputValue(d: Date) {
@@ -40,9 +85,12 @@ function monthInputValue(d: Date) {
 export function AddBudgetDialog({
   expenseCategories,
   defaultMonth,
+  trigger,
 }: {
   expenseCategories: BudgetExpenseCategory[];
   defaultMonth: Date;
+  /** Optional trigger; defaults to “Add budget”. */
+  trigger?: ReactNode;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -95,13 +143,21 @@ export function AddBudgetDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        className={cn(buttonVariants({ size: "sm" }), "gap-1")}
-        disabled={expenseCategories.length === 0}
-      >
-        <Plus className="size-4" />
-        Add budget
-      </DialogTrigger>
+      {trigger ? (
+        mergeDialogOpenTrigger(
+          trigger,
+          () => setOpen(true),
+          expenseCategories.length === 0,
+        )
+      ) : (
+        <DialogTrigger
+          className={cn(buttonVariants({ size: "sm" }), "gap-1")}
+          disabled={expenseCategories.length === 0}
+        >
+          <Plus className="size-4" />
+          Add budget
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add budget</DialogTitle>
