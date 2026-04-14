@@ -30,8 +30,11 @@ export function getRangeFromPreset(
         return { start: startOfMonth(d), end: endOfMonth(d) };
       }
       return { start: startOfMonth(now), end: endOfMonth(now) };
-    case "year":
-      return { start: startOfYear(now), end: endOfYear(now) };
+    case "year": {
+      const y = monthRef?.year ?? now.getFullYear();
+      const d = new Date(y, monthRef?.monthIndex ?? 0, 1);
+      return { start: startOfYear(d), end: endOfYear(d) };
+    }
     case "custom":
       if (!custom) {
         return { start: startOfMonth(now), end: endOfMonth(now) };

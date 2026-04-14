@@ -1,4 +1,7 @@
-import { CategoryIconShelf } from "@/lib/category-color";
+import {
+  CategoryIconShelf,
+  categoryIconShelfBorderStyle,
+} from "@/lib/category-color";
 import { cn } from "@/lib/utils";
 
 function chipClass() {
@@ -32,9 +35,7 @@ export function TransactionCategoryLabel({
           icon={icon}
           color={color}
           className="size-[26px] shrink-0 border p-1"
-          style={{
-            borderColor: "var(--cazura-border)",
-          }}
+          style={categoryIconShelfBorderStyle(color)}
           iconClassName="size-3"
         />
         <span

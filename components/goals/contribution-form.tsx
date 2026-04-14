@@ -3,7 +3,8 @@
 import { addGoalContribution } from "@/actions/goals";
 import { Button } from "@/components/ui/button";
 import {
-  DatetimePicker,
+  DatePicker,
+  TimeField,
   toDatetimeLocalValue,
 } from "@/components/ui/datetime-picker";
 import { Input } from "@/components/ui/input";
@@ -71,14 +72,25 @@ export function ContributionForm({
           onChange={(e) => setAmount(e.target.value)}
         />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="contribution-when">When</Label>
-        <DatetimePicker
-          id="contribution-when"
-          className="w-[220px]"
-          value={occurredAt}
-          onChange={setOccurredAt}
-        />
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="space-y-2">
+          <Label htmlFor="contribution-date">Date</Label>
+          <DatePicker
+            id="contribution-date"
+            className="w-[140px]"
+            value={occurredAt}
+            onChange={setOccurredAt}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="contribution-time">Time</Label>
+          <TimeField
+            id="contribution-time"
+            className="w-[120px]"
+            value={occurredAt}
+            onChange={setOccurredAt}
+          />
+        </div>
       </div>
       <Button type="submit">Add contribution</Button>
     </form>

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Legend,
   PolarAngleAxis,
   PolarGrid,
   PolarRadiusAxis,
@@ -9,6 +10,54 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
+
+function BudgetRadarTooltip({
+  active,
+  payload,
+  label,
+  cazura,
+}: {
+  active?: boolean;
+  payload?: ReadonlyArray<{ value?: unknown }> | undefined;
+  label?: string | number;
+  cazura: boolean;
+}) {
+  if (!active || !payload?.length || label == null) return null;
+  const raw = payload[0]?.value;
+  const pct = Math.round(Number(Array.isArray(raw) ? raw[0] : raw ?? 0));
+
+  if (cazura) {
+    return (
+      <div
+        className="min-w-0 rounded-lg border bg-white px-2.5 py-1.5 shadow-md"
+        style={{
+          borderColor: "var(--cazura-border)",
+          boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
+        }}
+      >
+        <p
+          className="mb-0.5 text-[11px] font-semibold leading-tight"
+          style={{ color: "var(--cazura-text)" }}
+        >
+          {String(label)}
+        </p>
+        <p
+          className="text-[11px] font-bold tabular-nums leading-tight"
+          style={{ color: "var(--cazura-teal)" }}
+        >
+          {pct}%
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md border border-border bg-popover px-2 py-1.5 text-xs shadow-md">
+      <p className="font-medium">{String(label)}</p>
+      <p className="tabular-nums text-muted-foreground">{pct}%</p>
+    </div>
+  );
+}
 
 export function BudgetRadarChart({
   data,
@@ -27,10 +76,10 @@ export function BudgetRadarChart({
         minWidth={0}
         initialDimension={{ width: 400, height: 300 }}
       >
-        <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data}>
+        <RadarChart cx="50%" cy="50%" outerRadius="72%" data={data}>
           <PolarGrid
             stroke={cazura ? "var(--cazura-border)" : undefined}
-            strokeWidth={1}
+            strokeWidth={cazura ? 0.75 : 1}
           />
           <PolarAngleAxis
             dataKey="month"
@@ -42,33 +91,58 @@ export function BudgetRadarChart({
           <PolarRadiusAxis
             angle={30}
             domain={[0, 100]}
-            tick={{
-              fontSize: cazura ? 10 : 9,
-              fill: cazura ? "var(--cazura-label)" : undefined,
-            }}
+            tickCount={5}
+            tick={false}
+            axisLine={false}
           />
           <Tooltip
-            contentStyle={
+            content={(props) => (
+              <BudgetRadarTooltip
+                active={props.active}
+                payload={
+                  props.payload as
+                    | ReadonlyArray<{ value?: unknown }>
+                    | undefined
+                }
+                label={props.label}
+                cazura={cazura}
+              />
+            )}
+            wrapperStyle={{ outline: "none" }}
+          />
+          <Legend
+            wrapperStyle={
               cazura
                 ? {
-                    background: "var(--cazura-panel)",
-                    border: "1px solid var(--cazura-border)",
-                    borderRadius: 8,
-                    boxShadow: "0 4px 8px rgba(0,0,0,0.05)",
+                    paddingTop: 4,
+                    fontSize: 11,
+                    color: "var(--cazura-muted)",
                   }
                 : undefined
             }
-            labelStyle={
-              cazura ? { color: "var(--cazura-muted)", fontSize: 11 } : undefined
-            }
-            formatter={(v) => `${Number(v ?? 0)}% of budget`}
+            formatter={(value) => (
+              <span style={cazura ? { color: "var(--cazura-text)" } : undefined}>
+                {value}
+              </span>
+            )}
           />
           <Radar
-            name="% used"
+            name="Budget used"
             dataKey="pct"
-            stroke={cazura ? "#487478" : "hsl(173 58% 39%)"}
-            fill={cazura ? "rgba(72, 116, 120, 0.2)" : "hsl(173 58% 39%)"}
-            fillOpacity={cazura ? 1 : 0.35}
+            stroke={cazura ? "var(--cazura-teal)" : "hsl(173 58% 39%)"}
+            strokeWidth={cazura ? 2 : 1.5}
+            fill={cazura ? "var(--cazura-teal)" : "hsl(173 58% 39%)"}
+            fillOpacity={cazura ? 0.18 : 0.35}
+            dot={
+              cazura
+                ? {
+                    r: 3.5,
+                    fill: "var(--cazura-teal)",
+                    stroke: "var(--cazura-panel)",
+                    strokeWidth: 2,
+                  }
+                : undefined
+            }
           />
         </RadarChart>
       </ResponsiveContainer>

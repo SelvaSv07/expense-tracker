@@ -184,7 +184,7 @@ export function TransactionsActivityTable({ rows }: { rows: ActivityRow[] }) {
           className="flex min-w-[720px] items-center gap-3 border-b px-3 py-2"
           style={{
             background: "#f0f0f0",
-            borderColor: "var(--cazura-border)",
+            borderColor: "var(--cazura-row-divider)",
           }}
         >
           <span
@@ -248,7 +248,7 @@ export function TransactionsActivityTable({ rows }: { rows: ActivityRow[] }) {
                 )}
                 style={{
                   background: "var(--cazura-panel)",
-                  borderColor: "var(--cazura-border)",
+                  borderColor: "var(--cazura-row-divider)",
                 }}
               >
                 <div className="w-[200px] shrink-0">

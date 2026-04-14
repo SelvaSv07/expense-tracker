@@ -1,10 +1,11 @@
 "use client";
 
-import { createCategory, deleteCategory } from "@/actions/categories";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { createCategory, deleteCategory, updateCategory } from "@/actions/categories";
+import { Button } from "@/components/ui/button";
 import {
   CATEGORY_COLOR_OPTIONS,
   CategoryIconShelf,
+  DEFAULT_CATEGORY_COLOR,
 } from "@/lib/category-color";
 import { CATEGORY_ICON_OPTIONS } from "@/lib/category-icon";
 import {
@@ -21,7 +22,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ChevronDown, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Pencil, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -71,6 +71,32 @@ function formatCategoryIconLabel(iconId: string) {
     .join(" ");
 }
 
+function normalizeIconForForm(icon: string | null): CreateFormValues["icon"] {
+  const v = icon ?? "";
+  return CATEGORY_ICON_OPTIONS.includes(
+    v as (typeof CATEGORY_ICON_OPTIONS)[number],
+  )
+    ? (v as CreateFormValues["icon"])
+    : "tag";
+}
+
+function normalizeColorForForm(color: string): CreateFormValues["color"] {
+  return CATEGORY_COLOR_OPTIONS.includes(
+    color as (typeof CATEGORY_COLOR_OPTIONS)[number],
+  )
+    ? (color as CreateFormValues["color"])
+    : DEFAULT_CATEGORY_COLOR;
+}
+
+function createFormDefaults(): CreateFormValues {
+  return {
+    name: "",
+    type: "expense",
+    icon: "tag",
+    color: CATEGORY_COLOR_OPTIONS[0],
+  };
+}
+
 type CategoryRow = {
   id: string;
   name: string;
@@ -88,36 +114,51 @@ export function CategoriesManager({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [addOpen, setAddOpen] = useState(false);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const form = useForm<CreateFormValues>({
     resolver: zodResolver(createFormSchema),
-    defaultValues: {
-      name: "",
-      type: "expense",
-      icon: "tag",
-      color: CATEGORY_COLOR_OPTIONS[0],
-    },
+    defaultValues: createFormDefaults(),
   });
 
   const selectedIcon = form.watch("icon");
   const selectedColor = form.watch("color");
 
-  async function onCreate(values: CreateFormValues) {
+  function openCreateDialog() {
+    setEditingId(null);
+    setFormError(null);
+    form.reset(createFormDefaults());
+    setCategoryDialogOpen(true);
+  }
+
+  function openEditDialog(c: CategoryRow) {
+    setEditingId(c.id);
+    setFormError(null);
+    form.reset({
+      name: c.name,
+      type: c.type as "income" | "expense",
+      icon: normalizeIconForForm(c.icon),
+      color: normalizeColorForForm(c.color),
+    });
+    setCategoryDialogOpen(true);
+  }
+
+  async function onSubmitCategory(values: CreateFormValues) {
     setFormError(null);
     startTransition(async () => {
       try {
-        await createCategory(values);
-        setAddOpen(false);
-        form.reset({
-          name: "",
-          type: "expense",
-          icon: "tag",
-          color: CATEGORY_COLOR_OPTIONS[0],
-        });
+        if (editingId) {
+          await updateCategory({ categoryId: editingId, ...values });
+        } else {
+          await createCategory(values);
+        }
+        setCategoryDialogOpen(false);
+        setEditingId(null);
+        form.reset(createFormDefaults());
         router.refresh();
       } catch (e) {
         setFormError(e instanceof Error ? e.message : "Something went wrong");
@@ -153,27 +194,42 @@ export function CategoriesManager({
           <CardTitle>Categories</CardTitle>
           <CardDescription>
             Income and expense labels used across transactions and budgets.
-            Delete is only allowed when a category has no transactions and no
-            budget rows.
+            Edit anytime; delete is only allowed when a category has no
+            transactions and no budget rows.
           </CardDescription>
         </div>
-        <Dialog open={addOpen} onOpenChange={setAddOpen}>
-          <DialogTrigger
-            className={cn(buttonVariants({ size: "sm" }), "gap-1")}
-          >
-            <Plus className="size-4" />
-            Add category
-          </DialogTrigger>
+        <Button
+          type="button"
+          size="sm"
+          className="gap-1"
+          onClick={openCreateDialog}
+        >
+          <Plus className="size-4" />
+          Add category
+        </Button>
+        <Dialog
+          open={categoryDialogOpen}
+          onOpenChange={(open) => {
+            setCategoryDialogOpen(open);
+            if (!open) {
+              setEditingId(null);
+              form.reset(createFormDefaults());
+              setFormError(null);
+            }
+          }}
+        >
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>New category</DialogTitle>
+              <DialogTitle>
+                {editingId ? "Edit category" : "New category"}
+              </DialogTitle>
               <DialogDescription>
                 Choose a name, type, color, and icon. The color appears behind
                 the icon everywhere this category is shown.
               </DialogDescription>
             </DialogHeader>
             <form
-              onSubmit={form.handleSubmit(onCreate)}
+              onSubmit={form.handleSubmit(onSubmitCategory)}
               className="space-y-4"
             >
               <div className="space-y-2">
@@ -194,24 +250,44 @@ export function CategoriesManager({
                 <Controller
                   control={form.control}
                   name="type"
-                  render={({ field }) => (
-                    <Select
-                      value={field.value}
-                      onValueChange={(v) =>
-                        field.onChange(v as "income" | "expense")
-                      }
-                    >
-                      <SelectTrigger className="w-full min-w-0">
-                        <SelectValue placeholder="Type">
-                          {field.value === "expense" ? "Expense" : "Income"}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="expense">Expense</SelectItem>
-                        <SelectItem value="income">Income</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
+                  render={({ field }) => {
+                    const typeLocked =
+                      editingId !== null &&
+                      (() => {
+                        const u = usage[editingId] ?? {
+                          transactions: 0,
+                          budgets: 0,
+                        };
+                        return u.transactions > 0 || u.budgets > 0;
+                      })();
+                    return (
+                      <>
+                        <Select
+                          value={field.value}
+                          disabled={typeLocked}
+                          onValueChange={(v) =>
+                            field.onChange(v as "income" | "expense")
+                          }
+                        >
+                          <SelectTrigger className="w-full min-w-0">
+                            <SelectValue placeholder="Type">
+                              {field.value === "expense" ? "Expense" : "Income"}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="expense">Expense</SelectItem>
+                            <SelectItem value="income">Income</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {typeLocked ? (
+                          <p className="text-muted-foreground text-xs">
+                            Income/expense type cannot be changed while this
+                            category has transactions or budget entries.
+                          </p>
+                        ) : null}
+                      </>
+                    );
+                  }}
                 />
               </div>
               <div className="space-y-2">
@@ -321,7 +397,7 @@ export function CategoriesManager({
               ) : null}
               <DialogFooter>
                 <Button type="submit" disabled={pending}>
-                  Create
+                  {editingId ? "Save changes" : "Create"}
                 </Button>
               </DialogFooter>
             </form>
@@ -336,7 +412,7 @@ export function CategoriesManager({
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead className="text-right">In use</TableHead>
-              <TableHead className="w-[52px]" />
+              <TableHead className="w-[52px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -369,24 +445,36 @@ export function CategoriesManager({
                     {useLabel}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      className="text-destructive hover:text-destructive"
-                      disabled={blocked || pending}
-                      title={
-                        blocked
-                          ? "Remove transactions and budget rows using this category first"
-                          : "Delete category"
-                      }
-                      onClick={() => {
-                        setDeleteError(null);
-                        setDeleteId(c.id);
-                      }}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
+                    <div className="flex justify-end gap-0.5">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        disabled={pending}
+                        title="Edit category"
+                        onClick={() => openEditDialog(c)}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-destructive hover:text-destructive"
+                        disabled={blocked || pending}
+                        title={
+                          blocked
+                            ? "Remove transactions and budget rows using this category first"
+                            : "Delete category"
+                        }
+                        onClick={() => {
+                          setDeleteError(null);
+                          setDeleteId(c.id);
+                        }}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               );

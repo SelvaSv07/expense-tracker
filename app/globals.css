@@ -58,6 +58,8 @@
   --cazura-text: #060f0d;
   --cazura-muted: #727272;
   --cazura-border: #ebebeb;
+  /* List / table hairlines — only slightly stronger than --cazura-border so rows stay soft */
+  --cazura-row-divider: #e8e8e8;
   --cazura-panel-border: #e0e0e0;
   --cazura-canvas: #f4f4f4;
   --cazura-panel: #f8f8f8;

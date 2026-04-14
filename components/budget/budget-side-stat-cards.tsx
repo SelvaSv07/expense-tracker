@@ -20,6 +20,7 @@ function SideStatCard({
   changeLabel,
   positive,
   icon,
+  comparisonSuffix,
 }: {
   title: string;
   amount: number;
@@ -27,16 +28,17 @@ function SideStatCard({
   changeLabel: string;
   positive: boolean;
   icon?: ReactNode;
+  comparisonSuffix: string;
 }) {
   return (
     <div
-      className="flex h-full min-w-0 flex-1 flex-col gap-4 rounded-xl border p-3 md:max-w-none"
+      className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-4 rounded-xl border p-3 md:max-w-none"
       style={{
         background: "var(--cazura-panel)",
         borderColor: "var(--cazura-border)",
       }}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         {icon ? <span className="shrink-0">{icon}</span> : null}
         <span
           className="min-w-0 flex-1 text-base font-bold"
@@ -45,7 +47,7 @@ function SideStatCard({
           {title}
         </span>
       </div>
-      <div className="flex flex-col gap-2 px-1">
+      <div className="flex min-h-0 flex-1 flex-col justify-center gap-2 px-1">
         <div className="flex flex-wrap items-center gap-1">
           <span
             className="text-2xl font-medium"
@@ -92,46 +94,37 @@ function SideStatCard({
           >
             {changeLabel}
           </span>{" "}
-          from previous period
+          {comparisonSuffix}
         </p>
       </div>
     </div>
   );
 }
 
-export function BudgetSideStatCards({
+export function BudgetIncomeCard({
   income,
   prevIncome,
-  expense,
-  prevExpense,
   className,
+  comparisonSuffix = "from previous period",
 }: {
   income: number;
   prevIncome: number;
-  expense: number;
-  prevExpense: number;
   className?: string;
+  comparisonSuffix?: string;
 }) {
   const dInc = income - prevIncome;
-  const dExp = expense - prevExpense;
   const incPct = pctChange(income, prevIncome);
-  const expPct = pctChange(expense, prevExpense);
   const incPos = dInc >= 0;
-  const expPos = dExp <= 0;
 
   return (
-    <div
-      className={cn(
-        "flex w-full shrink-0 flex-col gap-4 md:w-[276px] md:max-w-[276px]",
-        className,
-      )}
-    >
+    <div className={cn("flex h-full min-h-0 min-w-0 flex-col", className)}>
       <SideStatCard
         title="Incomes"
         amount={income}
         changePct={incPct}
         changeLabel={`${incPos ? "+" : "−"}${formatInr(Math.abs(dInc))}`}
         positive={incPos}
+        comparisonSuffix={comparisonSuffix}
         icon={
           <ArrowDownToLine
             className="size-4"
@@ -140,12 +133,34 @@ export function BudgetSideStatCards({
           />
         }
       />
+    </div>
+  );
+}
+
+export function BudgetExpenseCard({
+  expense,
+  prevExpense,
+  className,
+  comparisonSuffix = "from previous period",
+}: {
+  expense: number;
+  prevExpense: number;
+  className?: string;
+  comparisonSuffix?: string;
+}) {
+  const dExp = expense - prevExpense;
+  const expPct = pctChange(expense, prevExpense);
+  const expPos = dExp <= 0;
+
+  return (
+    <div className={cn("flex h-full min-h-0 min-w-0 flex-col", className)}>
       <SideStatCard
         title="Expenses"
         amount={expense}
         changePct={expPct}
         changeLabel={`${expPos ? "+" : "−"}${formatInr(Math.abs(dExp))}`}
         positive={expPos}
+        comparisonSuffix={comparisonSuffix}
         icon={
           <ArrowUpFromLine
             className="size-4"

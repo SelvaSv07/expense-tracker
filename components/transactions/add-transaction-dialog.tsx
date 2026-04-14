@@ -11,7 +11,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { DatetimePicker, toDatetimeLocalValue } from "@/components/ui/datetime-picker";
+import {
+  DatePicker,
+  TimeField,
+  toDatetimeLocalValue,
+} from "@/components/ui/datetime-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -289,15 +293,15 @@ export function AddTransactionDialog({
                     value={field.value ? field.value : null}
                     onValueChange={(v) => field.onChange(v ?? "")}
                   >
-                    <SelectTrigger className="w-full min-w-0 cursor-pointer">
+                    <SelectTrigger className="!h-auto min-h-8 w-full min-w-0 cursor-pointer py-1.5">
                       <SelectValue placeholder="Choose category">
                         {selected ? (
-                          <span className="flex items-center gap-2">
+                          <span className="flex min-h-0 items-center gap-2">
                             <CategoryIconShelf
                               icon={selected.icon}
                               color={selected.color}
-                              className="size-8"
-                              iconClassName="size-4"
+                              className="size-6 shrink-0 rounded-md"
+                              iconClassName="size-3.5"
                             />
                             <span className="truncate">{selected.name}</span>
                           </span>
@@ -349,20 +353,37 @@ export function AddTransactionDialog({
               </p>
             ) : null}
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="occurredAt">Date & time</Label>
-            <Controller
-              control={form.control}
-              name="occurredAt"
-              render={({ field }) => (
-                <DatetimePicker
-                  id="occurredAt"
-                  value={field.value}
-                  onChange={field.onChange}
-                  onBlur={field.onBlur}
-                />
-              )}
-            />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="occurredAt-date">Date</Label>
+              <Controller
+                control={form.control}
+                name="occurredAt"
+                render={({ field }) => (
+                  <DatePicker
+                    id="occurredAt-date"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                  />
+                )}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="occurredAt-time">Time</Label>
+              <Controller
+                control={form.control}
+                name="occurredAt"
+                render={({ field }) => (
+                  <TimeField
+                    id="occurredAt-time"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                  />
+                )}
+              />
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="paymentMethod">Method</Label>

@@ -1,12 +1,14 @@
 "use client";
 
+import {
+  CategoryIconShelf,
+  categoryIconShelfBorderStyle,
+} from "@/lib/category-color";
 import { formatInr } from "@/lib/money";
+import type { BudgetSegment } from "@/lib/budget-segments";
 import { timeQueryString } from "@/lib/search-params-time";
 import type { TimePreset } from "@/lib/time-range";
-import { normalizeCategoryColor } from "@/lib/category-color";
 import Link from "next/link";
-
-export type BudgetSegment = { color: string; weight: number };
 
 export function BudgetTotalCard({
   spent,
@@ -25,18 +27,21 @@ export function BudgetTotalCard({
   const defaultMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const mk = monthKey ?? defaultMonthKey;
 
-  const tabLinks: { id: "today" | "month" | "year"; label: string; href: string }[] = [
-    { id: "today", label: "This Day", href: "/budget?tf=today" },
+  const tabLinks: { id: "month" | "year"; label: string; href: string }[] = [
     {
       id: "month",
       label: "This Month",
       href: `/budget?${timeQueryString("month", undefined, { monthKey: mk })}`,
     },
-    { id: "year", label: "This Year", href: "/budget?tf=year" },
+    {
+      id: "year",
+      label: "This Year",
+      href: `/budget?${timeQueryString("year", undefined, { monthKey: mk })}`,
+    },
   ];
 
-  const activeTab: "today" | "month" | "year" =
-    preset === "today" ? "today" : preset === "year" ? "year" : "month";
+  const activeTab: "month" | "year" =
+    preset === "year" ? "year" : "month";
 
   const totalWeight = segments.reduce((a, s) => a + s.weight, 0);
 
@@ -102,19 +107,52 @@ export function BudgetTotalCard({
         </span>
       </div>
 
-      <div className="flex items-center gap-0.5 pl-1">
+      <div className="relative z-0 flex items-stretch gap-0.5 pl-1">
         {totalWeight > 0 ? (
           segments.map((s, i) => (
             <div
               key={i}
-              className="min-w-1 rounded-md"
-              style={{
-                flex: s.weight,
-                height: 16,
-                background: s.color,
-                minHeight: 16,
-              }}
-            />
+              className="group relative flex min-h-4 min-w-2"
+              style={{ flex: s.weight }}
+              aria-label={`${s.categoryName}, ${formatInr(s.spent)} spent`}
+            >
+              <div
+                className="h-4 w-full min-h-4 rounded-md"
+                style={{ background: s.color }}
+              />
+              <div
+                className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-30 w-max max-w-[min(240px,calc(100vw-2rem))] -translate-x-1/2 rounded-lg border px-2.5 py-2 opacity-0 shadow-md transition-opacity duration-150 group-hover:opacity-100"
+                style={{
+                  background: "var(--cazura-panel)",
+                  borderColor: "var(--cazura-border)",
+                }}
+                role="tooltip"
+              >
+                <div className="flex items-center gap-2">
+                  <CategoryIconShelf
+                    icon={s.categoryIcon}
+                    color={s.color}
+                    className="size-7 shrink-0 border p-1"
+                    style={categoryIconShelfBorderStyle(s.color)}
+                    iconClassName="size-3.5"
+                  />
+                  <div className="min-w-0">
+                    <p
+                      className="text-xs leading-tight font-semibold break-words"
+                      style={{ color: "var(--cazura-text)" }}
+                    >
+                      {s.categoryName}
+                    </p>
+                    <p
+                      className="mt-0.5 text-[11px] leading-tight"
+                      style={{ color: "var(--cazura-muted)" }}
+                    >
+                      {formatInr(s.spent)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           ))
         ) : (
           <div
@@ -125,17 +163,4 @@ export function BudgetTotalCard({
       </div>
     </div>
   );
-}
-
-export function segmentsFromBreakdown(
-  rows: { spent: number; categoryColor: string }[],
-): BudgetSegment[] {
-  const total = rows.reduce((a, r) => a + r.spent, 0);
-  if (total <= 0) return [];
-  return rows
-    .filter((r) => r.spent > 0)
-    .map((r) => ({
-      color: normalizeCategoryColor(r.categoryColor),
-      weight: r.spent,
-    }));
 }

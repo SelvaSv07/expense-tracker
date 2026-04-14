@@ -5,7 +5,7 @@ import { budgets, categories, transactions } from "@/db/schema";
 import { categoryColorSchema } from "@/lib/category-color";
 import { CATEGORY_ICON_OPTIONS } from "@/lib/category-icon";
 import { getSession } from "@/lib/session";
-import { and, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -18,6 +18,10 @@ const createSchema = z.object({
   type: z.enum(["income", "expense"]),
   icon: iconSchema,
   color: categoryColorSchema,
+});
+
+const updateSchema = createSchema.extend({
+  categoryId: z.string().min(1),
 });
 
 export async function createCategory(input: z.infer<typeof createSchema>) {
@@ -33,6 +37,63 @@ export async function createCategory(input: z.infer<typeof createSchema>) {
     icon: parsed.icon,
     color: parsed.color,
   });
+
+  revalidatePath("/settings");
+  revalidatePath("/settings/categories");
+  revalidatePath("/transactions");
+  revalidatePath("/budget");
+  revalidatePath("/overview");
+}
+
+export async function updateCategory(input: z.infer<typeof updateSchema>) {
+  const parsed = updateSchema.parse(input);
+  const session = await getSession();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const [cat] = await db
+    .select()
+    .from(categories)
+    .where(
+      and(
+        eq(categories.id, parsed.categoryId),
+        eq(categories.userId, session.user.id),
+      ),
+    )
+    .limit(1);
+  if (!cat) throw new Error("Category not found");
+
+  if (parsed.type !== cat.type) {
+    const [txAgg] = await db
+      .select({ n: count() })
+      .from(transactions)
+      .where(eq(transactions.categoryId, parsed.categoryId));
+    const [budAgg] = await db
+      .select({ n: count() })
+      .from(budgets)
+      .where(
+        and(
+          eq(budgets.categoryId, parsed.categoryId),
+          eq(budgets.userId, session.user.id),
+        ),
+      );
+    const txCount = Number(txAgg?.n ?? 0);
+    const budCount = Number(budAgg?.n ?? 0);
+    if (txCount > 0 || budCount > 0) {
+      throw new Error(
+        "Cannot change income/expense type while this category has transactions or budget entries.",
+      );
+    }
+  }
+
+  await db
+    .update(categories)
+    .set({
+      name: parsed.name.trim(),
+      type: parsed.type,
+      icon: parsed.icon,
+      color: parsed.color,
+    })
+    .where(eq(categories.id, parsed.categoryId));
 
   revalidatePath("/settings");
   revalidatePath("/settings/categories");

@@ -2,7 +2,6 @@
 
 import { AddBudgetDialog } from "@/components/budget/add-budget-dialog";
 import type { BudgetExpenseCategory } from "@/components/budget/add-budget-dialog";
-import { TimeframeToolbar } from "@/components/dashboard/timeframe-toolbar";
 import { ExportMenu } from "@/components/transactions/export-menu";
 import { buttonVariants } from "@/components/ui/button";
 import type { TimePreset } from "@/lib/time-range";
@@ -39,13 +38,6 @@ export function BudgetPageHeader({
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2.5">
-        <TimeframeToolbar
-          preset={preset}
-          basePath="/budget"
-          variant="cazura"
-          monthKey={monthKey}
-          custom={custom}
-        />
         <ExportMenu
           preset={preset}
           custom={custom}

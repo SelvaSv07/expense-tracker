@@ -4,8 +4,8 @@ import { upsertBudget } from "@/actions/budgets";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -20,10 +20,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CategoryIconShelf } from "@/lib/category-color";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  CategoryIconShelf,
+  categoryIconShelfBorderStyle,
+} from "@/lib/category-color";
 import { parseInrInput } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { Plus } from "lucide-react";
+import { CalendarDays, Plus, Repeat2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   cloneElement,
@@ -82,6 +86,18 @@ function monthInputValue(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function categoryTriggerShelf(c: BudgetExpenseCategory) {
+  return (
+    <CategoryIconShelf
+      icon={c.icon}
+      color={c.color}
+      className="size-9 shrink-0 border p-1.5"
+      style={categoryIconShelfBorderStyle(c.color)}
+      iconClassName="size-4"
+    />
+  );
+}
+
 export function AddBudgetDialog({
   expenseCategories,
   defaultMonth,
@@ -95,6 +111,7 @@ export function AddBudgetDialog({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [budgetType, setBudgetType] = useState<"month" | "recurring">("month");
   const [month, setMonth] = useState(monthInputValue(defaultMonth));
   const [categoryId, setCategoryId] = useState(
     expenseCategories[0]?.id ?? "",
@@ -104,13 +121,17 @@ export function AddBudgetDialog({
 
   useEffect(() => {
     if (!open) return;
+    setBudgetType("month");
     setMonth(monthInputValue(defaultMonth));
     setCategoryId(expenseCategories[0]?.id ?? "");
     setAmount("");
     setError(null);
   }, [open, defaultMonth, expenseCategories]);
 
-  const selected = expenseCategories.find((c) => c.id === categoryId);
+  const sortedCategories = [...expenseCategories].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
+  const selected = sortedCategories.find((c) => c.id === categoryId);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -125,13 +146,14 @@ export function AddBudgetDialog({
       return;
     }
     const [y, m] = month.split("-").map(Number);
-    const yearMonth = new Date(y!, (m ?? 1) - 1, 1);
+    const monthDate = new Date(y!, (m ?? 1) - 1, 1);
     startTransition(async () => {
       try {
         await upsertBudget({
           categoryId,
-          yearMonth,
           amount: amt,
+          recurring: budgetType === "recurring",
+          month: monthDate,
         });
         setOpen(false);
         router.refresh();
@@ -142,7 +164,19 @@ export function AddBudgetDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) {
+          setBudgetType("month");
+          setMonth(monthInputValue(defaultMonth));
+          setCategoryId(expenseCategories[0]?.id ?? "");
+          setAmount("");
+          setError(null);
+        }
+      }}
+    >
       {trigger ? (
         mergeDialogOpenTrigger(
           trigger,
@@ -158,79 +192,133 @@ export function AddBudgetDialog({
           Add budget
         </DialogTrigger>
       )}
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="gap-3 px-4 pt-3 pb-4 sm:max-w-md">
+        <DialogHeader className="pr-8 pb-2 text-left">
           <DialogTitle>Add budget</DialogTitle>
-          <DialogDescription>
-            Set a spending limit for one expense category in a calendar month.
-            Spending is tracked only in that month. Other months stay
-            independent—add budgets there when you need them.
-          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={onSubmit} className="flex flex-col gap-3">
+          <div className="mb-5 space-y-2">
+            <Label>Type</Label>
+            <Tabs
+              value={budgetType}
+              onValueChange={(v) =>
+                setBudgetType(v === "recurring" ? "recurring" : "month")
+              }
+            >
+              <TabsList
+                variant="line"
+                className="grid h-auto w-full grid-cols-2 gap-2 bg-transparent p-0"
+              >
+                <TabsTrigger
+                  value="month"
+                  className={cn(
+                    "h-11 cursor-pointer gap-2 border-2 py-2 shadow-none after:hidden",
+                    "border-[color-mix(in_srgb,var(--cazura-teal-mid)35%,transparent)] bg-[color-mix(in_srgb,var(--cazura-teal-mid)10%,transparent)]",
+                    "text-[var(--cazura-teal-mid)] [&_svg]:text-[var(--cazura-teal-mid)]",
+                    "data-active:!border-[var(--cazura-teal-mid)] data-active:!bg-[var(--cazura-teal-mid)] data-active:!text-white data-active:!shadow-none data-active:[&_svg]:!text-white",
+                    "hover:opacity-90",
+                  )}
+                >
+                  <CalendarDays className="size-4 shrink-0" strokeWidth={1.8} />
+                  Month
+                </TabsTrigger>
+                <TabsTrigger
+                  value="recurring"
+                  className={cn(
+                    "h-11 cursor-pointer gap-2 border-2 py-2 shadow-none after:hidden",
+                    "border-[color-mix(in_srgb,#7c3aed35%,transparent)] bg-[color-mix(in_srgb,#7c3aed12%,transparent)]",
+                    "text-[#7c3aed] [&_svg]:text-[#7c3aed]",
+                    "data-active:!border-[#7c3aed] data-active:!bg-[#7c3aed] data-active:!text-white data-active:!shadow-none data-active:[&_svg]:!text-white",
+                    "hover:opacity-90",
+                  )}
+                >
+                  <Repeat2 className="size-4 shrink-0" strokeWidth={1.8} />
+                  Recurring
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
           <div className="space-y-2">
-            <Label htmlFor="budget-month">Month</Label>
+            <Label htmlFor="budget-month">
+              {budgetType === "month" ? "Month" : "Starts from"}
+            </Label>
             <Input
               id="budget-month"
               type="month"
               value={month}
               onChange={(e) => setMonth(e.target.value)}
+              className="h-11"
             />
           </div>
+
           <div className="space-y-2">
             <Label>Category</Label>
             <Select
-              value={categoryId}
+              modal={false}
+              value={categoryId ? categoryId : null}
               onValueChange={(v) => setCategoryId(v ?? "")}
             >
-              <SelectTrigger className="w-full min-w-0">
+              <SelectTrigger className="!h-auto min-h-14 w-full min-w-0 cursor-pointer rounded-lg py-2.5 pl-2.5">
                 <SelectValue placeholder="Choose category">
                   {selected ? (
-                    <span className="flex items-center gap-2">
-                      <CategoryIconShelf
-                        icon={selected.icon}
-                        color={selected.color}
-                        className="size-8"
-                        iconClassName="size-4"
-                      />
-                      <span className="truncate">{selected.name}</span>
+                    <span className="flex min-w-0 items-center gap-3">
+                      {categoryTriggerShelf(selected)}
+                      <span className="truncate font-medium">{selected.name}</span>
                     </span>
                   ) : null}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {expenseCategories.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    <CategoryIconShelf
-                      icon={c.icon}
-                      color={c.color}
-                      className="size-8"
-                      iconClassName="size-4"
-                    />
-                    {c.name}
+                {sortedCategories.map((c) => (
+                  <SelectItem
+                    key={c.id}
+                    value={c.id}
+                    className="cursor-pointer py-3"
+                  >
+                    <span className="flex items-center gap-3">
+                      {categoryTriggerShelf(c)}
+                      <span>{c.name}</span>
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-muted-foreground text-xs">
-              One budget per category per month. Saving again updates the
-              amount.
-            </p>
+            {expenseCategories.length === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                No expense categories yet. Add one in Settings.
+              </p>
+            ) : null}
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="budget-amount">Budget amount</Label>
+            <Label htmlFor="budget-amount">Budget amount (INR)</Label>
             <Input
               id="budget-amount"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0.00"
+              className="h-11"
             />
           </div>
+
           {error ? (
             <p className="text-destructive text-sm">{error}</p>
           ) : null}
-          <DialogFooter>
-            <Button type="submit" disabled={pending}>
+
+          <DialogFooter className="mt-1 gap-2 sm:justify-end">
+            <DialogClose
+              render={
+                <Button type="button" variant="outline" className="cursor-pointer" />
+              }
+            >
+              Cancel
+            </DialogClose>
+            <Button
+              type="submit"
+              className="cursor-pointer"
+              disabled={pending || expenseCategories.length === 0}
+            >
               Save budget
             </Button>
           </DialogFooter>

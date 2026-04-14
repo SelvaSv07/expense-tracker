@@ -2,35 +2,121 @@
 
 import { DeleteBudgetButton } from "@/components/budget/delete-budget-button";
 import { TransactionCategoryLabel } from "@/components/transactions/transaction-category-label";
+import { loadBudgetSpendingBreakdownForMonth } from "@/actions/budgets";
+import type { BudgetBreakdownRow } from "@/lib/budget-breakdown";
+import { dispatchBudgetClientMonthChanged } from "@/lib/budget-client-sync";
 import { formatInr } from "@/lib/money";
+import type { RadarWindowMonths } from "@/lib/search-params-time";
 import { cn } from "@/lib/utils";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useState, useTransition } from "react";
 
-export type BudgetBreakdownRow = {
-  budgetId: string;
-  categoryName: string;
-  categoryIcon: string | null;
-  categoryColor: string;
-  budgeted: number;
-  spent: number;
-  pct: number;
-};
+export type { BudgetBreakdownRow };
+
+function shiftMonthKey(monthKey: string, deltaMonths: number): string {
+  const [y, mo] = monthKey.split("-").map(Number);
+  const d = new Date(y, mo - 1 + deltaMonths, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
 export function BudgetSpendingBreakdown({
-  rows,
-  viewMonthLabel,
-  prevHref,
-  nextHref,
+  rows: initialRows,
+  viewMonthLabel: initialViewMonthLabel,
+  monthNav,
 }: {
   rows: BudgetBreakdownRow[];
   viewMonthLabel: string;
-  prevHref: string;
-  nextHref: string;
+  /** Client-side month navigation without remounting the full budget page. */
+  monthNav?: { monthKey: string; radarMonths: RadarWindowMonths };
 }) {
+  const pathname = usePathname();
+  const [isPending, startTransition] = useTransition();
+  const [rows, setRows] = useState(initialRows);
+  const [viewMonthLabel, setViewMonthLabel] = useState(initialViewMonthLabel);
+  const [activeMonthKey, setActiveMonthKey] = useState(
+    monthNav?.monthKey ?? "",
+  );
+
+  useEffect(() => {
+    setRows(initialRows);
+    setViewMonthLabel(initialViewMonthLabel);
+    if (monthNav) setActiveMonthKey(monthNav.monthKey);
+  }, [
+    initialRows,
+    initialViewMonthLabel,
+    monthNav?.monthKey,
+    monthNav?.radarMonths,
+  ]);
+
+  const showMonthNav = Boolean(monthNav);
+
+  const replaceMonthInUrl = useCallback(
+    (nextMonthKey: string, radar: RadarWindowMonths) => {
+      const p = new URLSearchParams(
+        typeof window !== "undefined"
+          ? window.location.search
+          : "",
+      );
+      p.set("tf", "month");
+      p.set("m", nextMonthKey);
+      p.set("radarMonths", String(radar));
+      window.history.replaceState(
+        null,
+        "",
+        `${pathname}?${p.toString()}`,
+      );
+    },
+    [pathname],
+  );
+
+  const goToMonth = useCallback(
+    (nextMonthKey: string) => {
+      if (!monthNav) return;
+      startTransition(async () => {
+        try {
+          const data = await loadBudgetSpendingBreakdownForMonth(nextMonthKey);
+          setRows(data.rows);
+          setViewMonthLabel(data.viewMonthLabel);
+          setActiveMonthKey(data.monthKey);
+          replaceMonthInUrl(nextMonthKey, monthNav.radarMonths);
+          dispatchBudgetClientMonthChanged(nextMonthKey);
+        } catch (e) {
+          console.error(e);
+        }
+      });
+    },
+    [monthNav, replaceMonthInUrl],
+  );
+
+  useEffect(() => {
+    if (!monthNav) return;
+
+    const onPopState = () => {
+      const q = new URLSearchParams(window.location.search);
+      const m = q.get("m");
+      if (!m || !/^\d{4}-\d{2}$/.test(m)) return;
+      startTransition(async () => {
+        try {
+          const data = await loadBudgetSpendingBreakdownForMonth(m);
+          setRows(data.rows);
+          setViewMonthLabel(data.viewMonthLabel);
+          setActiveMonthKey(data.monthKey);
+          dispatchBudgetClientMonthChanged(m);
+        } catch (e) {
+          console.error(e);
+        }
+      });
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [monthNav]);
+
   return (
     <div
       className="flex flex-col gap-4 rounded-xl border p-3"
+      aria-busy={isPending}
       style={{
         background: "var(--cazura-panel)",
         borderColor: "var(--cazura-border)",
@@ -44,57 +130,84 @@ export function BudgetSpendingBreakdown({
           Budget Spending Breakdown
         </span>
         <div className="flex items-center gap-1">
-          <Link
-            href={prevHref}
-            className={cn(
-              "flex size-8 items-center justify-center rounded-lg border transition-opacity hover:opacity-90",
-            )}
-            style={{
-              background: "var(--cazura-panel)",
-              borderColor: "var(--cazura-border)",
-              color: "var(--cazura-text)",
-            }}
-            aria-label="Previous month"
-          >
-            <ChevronLeft className="size-4" />
-          </Link>
-          <div
-            className="flex h-8 min-w-[140px] items-center justify-center gap-2 rounded-lg border px-3 text-xs font-medium"
-            style={{
-              background: "var(--cazura-panel)",
-              borderColor: "var(--cazura-border)",
-              color: "var(--cazura-text)",
-            }}
-          >
-            <CalendarDays className="size-4 shrink-0" strokeWidth={1.8} />
-            <span className="truncate">{viewMonthLabel}</span>
-          </div>
-          <Link
-            href={nextHref}
-            className={cn(
-              "flex size-8 items-center justify-center rounded-lg border transition-opacity hover:opacity-90",
-            )}
-            style={{
-              background: "var(--cazura-panel)",
-              borderColor: "var(--cazura-border)",
-              color: "var(--cazura-text)",
-            }}
-            aria-label="Next month"
-          >
-            <ChevronRight className="size-4" />
-          </Link>
+          {showMonthNav ? (
+            <>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() =>
+                  goToMonth(shiftMonthKey(activeMonthKey, -1))
+                }
+                className={cn(
+                  "flex size-8 cursor-pointer items-center justify-center rounded-lg border transition-opacity hover:opacity-90 disabled:opacity-50",
+                )}
+                style={{
+                  background: "var(--cazura-panel)",
+                  borderColor: "var(--cazura-border)",
+                  color: "var(--cazura-text)",
+                }}
+                aria-label="Previous month"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+              <div
+                className="flex h-8 min-w-[140px] items-center justify-center gap-2 rounded-lg border px-3 text-xs font-medium"
+                style={{
+                  background: "var(--cazura-panel)",
+                  borderColor: "var(--cazura-border)",
+                  color: "var(--cazura-text)",
+                }}
+              >
+                <CalendarDays className="size-4 shrink-0" strokeWidth={1.8} />
+                <span className="truncate">{viewMonthLabel}</span>
+              </div>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() =>
+                  goToMonth(shiftMonthKey(activeMonthKey, 1))
+                }
+                className={cn(
+                  "flex size-8 cursor-pointer items-center justify-center rounded-lg border transition-opacity hover:opacity-90 disabled:opacity-50",
+                )}
+                style={{
+                  background: "var(--cazura-panel)",
+                  borderColor: "var(--cazura-border)",
+                  color: "var(--cazura-text)",
+                }}
+                aria-label="Next month"
+              >
+                <ChevronRight className="size-4" />
+              </button>
+            </>
+          ) : (
+            <div
+              className="flex h-8 min-w-[140px] items-center justify-center gap-2 rounded-lg border px-3 text-xs font-medium"
+              style={{
+                background: "var(--cazura-panel)",
+                borderColor: "var(--cazura-border)",
+                color: "var(--cazura-text)",
+              }}
+            >
+              <CalendarDays className="size-4 shrink-0" strokeWidth={1.8} />
+              <span className="truncate">{viewMonthLabel}</span>
+            </div>
+          )}
         </div>
       </div>
 
       <div
-        className="overflow-hidden rounded-lg border"
+        className={cn(
+          "overflow-hidden rounded-lg border transition-opacity",
+          isPending && "opacity-60",
+        )}
         style={{ borderColor: "var(--cazura-border)" }}
       >
         <div
           className="flex flex-wrap items-center gap-3 border-b px-3 py-2 md:flex-nowrap md:gap-3"
           style={{
             background: "color-mix(in srgb, var(--cazura-border) 35%, var(--cazura-panel))",
-            borderColor: "var(--cazura-border)",
+            borderColor: "var(--cazura-row-divider)",
           }}
         >
           <span
@@ -147,7 +260,7 @@ export function BudgetSpendingBreakdown({
             <div
               key={row.budgetId}
               className="flex flex-col gap-3 border-b px-3 py-3 last:border-b-0 md:flex-row md:flex-wrap md:items-center md:gap-3"
-              style={{ borderColor: "var(--cazura-border)" }}
+              style={{ borderColor: "var(--cazura-row-divider)" }}
             >
               <div className="flex items-center gap-2 md:w-[160px] md:flex-shrink-0">
                 <TransactionCategoryLabel
@@ -157,13 +270,25 @@ export function BudgetSpendingBreakdown({
                 />
               </div>
               <span
-                className="text-xs font-medium md:min-w-0 md:flex-1"
+                className="flex flex-wrap items-center gap-2 text-xs font-medium md:min-w-0 md:flex-1"
                 style={{ color: "var(--cazura-muted)" }}
               >
-                <span className="md:hidden" style={{ color: "var(--cazura-label)" }}>
-                  Budgeted{" "}
+                <span className="inline-flex items-center gap-2">
+                  <span className="md:hidden" style={{ color: "var(--cazura-label)" }}>
+                    Budgeted{" "}
+                  </span>
+                  {formatInr(row.budgeted)}
+                  <span
+                    className="rounded-md border px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap"
+                    style={{
+                      background: "var(--cazura-canvas)",
+                      borderColor: "var(--cazura-border)",
+                      color: "var(--cazura-label)",
+                    }}
+                  >
+                    {row.budgetScope === "recurring" ? "All months" : "This month"}
+                  </span>
                 </span>
-                {formatInr(row.budgeted)}
               </span>
               <span
                 className="text-xs font-medium md:min-w-0 md:flex-1"

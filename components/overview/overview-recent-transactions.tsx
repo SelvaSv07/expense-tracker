@@ -32,11 +32,30 @@ function toOccurredDate(tx: Tx): Date {
     : new Date(tx.occurredAt);
 }
 
+/** Fixed locale so SSR (Node) and the browser produce identical strings — avoids hydration mismatches. */
+const DISPLAY_LOCALE = "en-US";
+
 function ymdLocal(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+function formatRowDate(d: Date): string {
+  return d.toLocaleDateString(DISPLAY_LOCALE, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatRowTime(d: Date): string {
+  return d.toLocaleTimeString(DISPLAY_LOCALE, {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
 }
 
 const TABLE_MIN_W = "min-w-[720px]";
@@ -168,7 +187,7 @@ export function OverviewRecentTransactions({ rows }: { rows: Tx[] }) {
             className={`flex items-center gap-3 border-b px-3 py-1.5 ${TABLE_MIN_W}`}
             style={{
               background: "#f0f0f0",
-              borderColor: "var(--cazura-border)",
+              borderColor: "var(--cazura-row-divider)",
             }}
           >
             <span
@@ -285,7 +304,7 @@ export function OverviewRecentTransactions({ rows }: { rows: Tx[] }) {
                 className={`flex items-center gap-3 border-b px-3 py-2.5 last:border-b-0 ${TABLE_MIN_W}`}
                 style={{
                   background: "var(--cazura-panel)",
-                  borderColor: "var(--cazura-border)",
+                  borderColor: "var(--cazura-row-divider)",
                 }}
               >
                 <div className={`${COL_CATEGORY} min-w-0`}>
@@ -302,20 +321,13 @@ export function OverviewRecentTransactions({ rows }: { rows: Tx[] }) {
                   className={`${COL_DATE} text-xs font-medium`}
                   style={{ color: "var(--cazura-muted)" }}
                 >
-                  {occurred.toLocaleDateString(undefined, {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
+                  {formatRowDate(occurred)}
                 </span>
                 <span
                   className={`${COL_TIME} text-xs font-medium`}
                   style={{ color: "var(--cazura-muted)" }}
                 >
-                  {occurred.toLocaleTimeString(undefined, {
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
+                  {formatRowTime(occurred)}
                 </span>
                 <span
                   className={`${COL_AMOUNT} text-xs font-bold`}

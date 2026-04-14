@@ -7,9 +7,16 @@ import {
   transactions,
   userFinance,
 } from "@/db/schema";
-import type { MonthRef, TimePreset } from "@/lib/time-range";
+import {
+  type BudgetAmountRow,
+  effectiveBudgetByCategoryForMonth,
+  effectiveBudgetTotalForMonth,
+  effectiveBudgetTotalForMonths,
+  recurringBudgetAppliesInMonth,
+} from "@/lib/budget-recurring";
+import type { MonthRef, TimePreset, TimeRange } from "@/lib/time-range";
 import { getRangeFromPreset, getPreviousRange } from "@/lib/time-range";
-import { startOfMonth, subMonths } from "date-fns";
+import { format, startOfMonth, subMonths } from "date-fns";
 import { and, count, desc, eq, gte, lte } from "drizzle-orm";
 
 export async function getOpeningBalanceForUser(userId: string): Promise<number> {
@@ -67,9 +74,13 @@ export async function getTransactionAggregates(
   preset: TimePreset,
   custom?: { from: Date; to: Date },
   monthRef?: MonthRef,
+  opts?: { range?: TimeRange; prev?: TimeRange },
 ) {
-  const range = getRangeFromPreset(preset, new Date(), custom, monthRef);
-  const prev = getPreviousRange(preset, new Date(), custom, monthRef);
+  const now = new Date();
+  const range =
+    opts?.range ?? getRangeFromPreset(preset, now, custom, monthRef);
+  const prev =
+    opts?.prev ?? getPreviousRange(preset, now, custom, monthRef);
 
   const rows = await db
     .select({
@@ -404,8 +415,10 @@ export async function getBudgetUsageForRange(
   preset: TimePreset,
   custom?: { from: Date; to: Date },
   monthRef?: MonthRef,
+  opts?: { range?: TimeRange },
 ) {
-  const range = getRangeFromPreset(preset, new Date(), custom, monthRef);
+  const range =
+    opts?.range ?? getRangeFromPreset(preset, new Date(), custom, monthRef);
 
   const monthStarts = new Set<number>();
   let t = new Date(range.start);
@@ -415,20 +428,24 @@ export async function getBudgetUsageForRange(
   }
 
   const budgetsRows = await db
-    .select()
+    .select({
+      categoryId: budgets.categoryId,
+      amount: budgets.amount,
+      recurring: budgets.recurring,
+      yearMonth: budgets.yearMonth,
+      startsMonth: budgets.startsMonth,
+    })
     .from(budgets)
     .where(eq(budgets.userId, userId));
 
-  let budgeted = 0;
-  for (const b of budgetsRows) {
-    const bm = new Date(b.yearMonth);
-    bm.setHours(0, 0, 0, 0);
-    const key = new Date(bm.getFullYear(), bm.getMonth(), 1).getTime();
-    if (monthStarts.has(key)) budgeted += b.amount;
-  }
+  const budgeted = effectiveBudgetTotalForMonths(budgetsRows, monthStarts);
 
   const spentRows = await db
-    .select({ amount: transactions.amount })
+    .select({
+      amount: transactions.amount,
+      categoryId: transactions.categoryId,
+      occurredAt: transactions.occurredAt,
+    })
     .from(transactions)
     .innerJoin(categories, eq(transactions.categoryId, categories.id))
     .where(
@@ -440,7 +457,25 @@ export async function getBudgetUsageForRange(
       ),
     );
 
-  const spent = spentRows.reduce((a, r) => a + r.amount, 0);
+  const spentByMonth = new Map<number, typeof spentRows>();
+  for (const r of spentRows) {
+    const d = new Date(r.occurredAt);
+    const k = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+    const list = spentByMonth.get(k);
+    if (list) list.push(r);
+    else spentByMonth.set(k, [r]);
+  }
+
+  let spent = 0;
+  for (const [monthTs, rows] of spentByMonth) {
+    const caps = effectiveBudgetByCategoryForMonth(
+      budgetsRows,
+      new Date(monthTs),
+    );
+    for (const r of rows) {
+      if ((caps.get(r.categoryId) ?? 0) > 0) spent += r.amount;
+    }
+  }
 
   return { budgeted, spent };
 }
@@ -463,7 +498,13 @@ export async function getBudgetVsSpentByMonth(userId: string, year: number) {
   const out: { month: string; budgeted: number; spent: number }[] = [];
 
   const bSum = await db
-    .select()
+    .select({
+      categoryId: budgets.categoryId,
+      amount: budgets.amount,
+      recurring: budgets.recurring,
+      yearMonth: budgets.yearMonth,
+      startsMonth: budgets.startsMonth,
+    })
     .from(budgets)
     .where(eq(budgets.userId, userId));
 
@@ -471,16 +512,13 @@ export async function getBudgetVsSpentByMonth(userId: string, year: number) {
     const start = new Date(year, m, 1);
     const end = new Date(year, m + 1, 0, 23, 59, 59, 999);
 
-    let budgeted = 0;
-    for (const b of bSum) {
-      const d = new Date(b.yearMonth);
-      if (d.getFullYear() === year && d.getMonth() === m) {
-        budgeted += b.amount;
-      }
-    }
+    const budgeted = effectiveBudgetTotalForMonth(bSum, start);
 
     const spentRows = await db
-      .select({ amount: transactions.amount })
+      .select({
+        amount: transactions.amount,
+        categoryId: transactions.categoryId,
+      })
       .from(transactions)
       .innerJoin(categories, eq(transactions.categoryId, categories.id))
       .where(
@@ -492,12 +530,75 @@ export async function getBudgetVsSpentByMonth(userId: string, year: number) {
         ),
       );
 
-    const spent = spentRows.reduce((a, r) => a + r.amount, 0);
+    const caps = effectiveBudgetByCategoryForMonth(bSum, start);
+    const spent = spentRows.reduce((a, r) => {
+      if ((caps.get(r.categoryId) ?? 0) > 0) return a + r.amount;
+      return a;
+    }, 0);
 
     out.push({
       month: labels[m] ?? "",
       budgeted,
       spent,
+    });
+  }
+
+  return out;
+}
+
+/** Ten calendar years ending at `endYear`: total budgeted (sum of monthly effective budgets) vs expense spent per year. */
+export async function getBudgetVsSpentForYearRange(
+  userId: string,
+  endYear: number,
+  yearCount: number,
+) {
+  const startYear = endYear - yearCount + 1;
+  const rangeStart = new Date(startYear, 0, 1);
+  const rangeEnd = new Date(endYear, 11, 31, 23, 59, 59, 999);
+
+  const bSum = await db
+    .select({
+      categoryId: budgets.categoryId,
+      amount: budgets.amount,
+      recurring: budgets.recurring,
+      yearMonth: budgets.yearMonth,
+      startsMonth: budgets.startsMonth,
+    })
+    .from(budgets)
+    .where(eq(budgets.userId, userId));
+
+  const spentRows = await db
+    .select({
+      amount: transactions.amount,
+      occurredAt: transactions.occurredAt,
+    })
+    .from(transactions)
+    .innerJoin(categories, eq(transactions.categoryId, categories.id))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        eq(categories.type, "expense"),
+        gte(transactions.occurredAt, rangeStart),
+        lte(transactions.occurredAt, rangeEnd),
+      ),
+    );
+
+  const spentByYear = new Map<number, number>();
+  for (const r of spentRows) {
+    const y = new Date(r.occurredAt).getFullYear();
+    spentByYear.set(y, (spentByYear.get(y) ?? 0) + r.amount);
+  }
+
+  const out: { month: string; budgeted: number; spent: number }[] = [];
+  for (let y = startYear; y <= endYear; y++) {
+    let budgeted = 0;
+    for (let m = 0; m < 12; m++) {
+      budgeted += effectiveBudgetTotalForMonth(bSum, new Date(y, m, 1));
+    }
+    out.push({
+      month: String(y),
+      budgeted,
+      spent: spentByYear.get(y) ?? 0,
     });
   }
 
@@ -539,17 +640,23 @@ export async function getBudgetPercentLastNMonths(
       byYear.set(y, await getBudgetVsSpentByMonth(userId, y));
     }),
   );
+  const useYearSuffix =
+    ticks.length > 0
+      ? Math.min(...ticks.map((t) => t.getFullYear())) !==
+        Math.max(...ticks.map((t) => t.getFullYear()))
+      : false;
+
   const out: { month: string; pct: number }[] = [];
   for (const d of ticks) {
     const y = d.getFullYear();
     const m = d.getMonth();
     const row = byYear.get(y)?.[m];
-    if (!row) continue;
+    const budgeted = row?.budgeted ?? 0;
+    const spent = row?.spent ?? 0;
     const pct =
-      row.budgeted > 0
-        ? Math.min(100, Math.round((row.spent / row.budgeted) * 100))
-        : 0;
-    out.push({ month: row.month, pct });
+      budgeted > 0 ? Math.min(100, Math.round((spent / budgeted) * 100)) : 0;
+    const monthLabel = useYearSuffix ? format(d, "MMM ''yy") : format(d, "MMM");
+    out.push({ month: monthLabel, pct });
   }
   return out;
 }
@@ -574,13 +681,41 @@ export async function getBudgetBreakdownForMonth(
       budgetId: budgets.id,
       categoryId: budgets.categoryId,
       amount: budgets.amount,
+      recurring: budgets.recurring,
+      yearMonth: budgets.yearMonth,
+      startsMonth: budgets.startsMonth,
       categoryName: categories.name,
       categoryIcon: categories.icon,
       categoryColor: categories.color,
     })
     .from(budgets)
     .innerJoin(categories, eq(budgets.categoryId, categories.id))
-    .where(and(eq(budgets.userId, userId), eq(budgets.yearMonth, start)));
+    .where(
+      and(eq(budgets.userId, userId), eq(categories.type, "expense")),
+    );
+
+  const startTs = start.getTime();
+  const recurringByCat = new Map<
+    string,
+    (typeof budgetRows)[number]
+  >();
+  const monthByCat = new Map<string, (typeof budgetRows)[number]>();
+  for (const b of budgetRows) {
+    if (b.recurring) {
+      if (recurringBudgetAppliesInMonth(b.startsMonth, start)) {
+        recurringByCat.set(b.categoryId, b);
+      }
+    } else {
+      const d = new Date(b.yearMonth);
+      const k = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+      if (k === startTs) monthByCat.set(b.categoryId, b);
+    }
+  }
+
+  const categoryIds = new Set([
+    ...recurringByCat.keys(),
+    ...monthByCat.keys(),
+  ]);
 
   const spent = await db
     .select({
@@ -607,20 +742,177 @@ export async function getBudgetBreakdownForMonth(
     );
   }
 
-  return budgetRows.map((b) => {
-    const s = spentMap.get(b.categoryId) ?? 0;
-    const pct = b.amount > 0 ? Math.round((s / b.amount) * 100) : 0;
-    return {
-      budgetId: b.budgetId,
-      categoryId: b.categoryId,
-      categoryName: b.categoryName,
-      categoryIcon: b.categoryIcon,
-      categoryColor: b.categoryColor,
-      budgeted: b.amount,
-      spent: s,
-      pct,
-    };
-  });
+  return [...categoryIds]
+    .map((categoryId) => {
+      const spec = monthByCat.get(categoryId);
+      const rec = recurringByCat.get(categoryId);
+      const chosen = spec ?? rec;
+      if (!chosen) return null;
+      const s = spentMap.get(categoryId) ?? 0;
+      const amt = chosen.amount;
+      const pct = amt > 0 ? Math.round((s / amt) * 100) : 0;
+      return {
+        budgetId: chosen.budgetId,
+        categoryId,
+        categoryName: chosen.categoryName,
+        categoryIcon: chosen.categoryIcon,
+        categoryColor: chosen.categoryColor,
+        budgeted: amt,
+        spent: s,
+        pct,
+        budgetScope: (spec ? "month" : "recurring") as "month" | "recurring",
+      };
+    })
+    .filter(
+      (
+        r,
+      ): r is {
+        budgetId: string;
+        categoryId: string;
+        categoryName: string;
+        categoryIcon: string | null;
+        categoryColor: string;
+        budgeted: number;
+        spent: number;
+        pct: number;
+        budgetScope: "month" | "recurring";
+      } => r != null,
+    )
+    .sort((a, b) => a.categoryName.localeCompare(b.categoryName));
+}
+
+/** Budget vs spend per category across a date range (e.g. calendar year). */
+export async function getBudgetBreakdownForRange(
+  userId: string,
+  range: { start: Date; end: Date },
+) {
+  const monthStarts: number[] = [];
+  let t = new Date(range.start);
+  const endMs = range.end.getTime();
+  while (t.getTime() <= endMs) {
+    monthStarts.push(new Date(t.getFullYear(), t.getMonth(), 1).getTime());
+    t = new Date(t.getFullYear(), t.getMonth() + 1, 1);
+  }
+
+  const budgetRows = await db
+    .select({
+      budgetId: budgets.id,
+      categoryId: budgets.categoryId,
+      amount: budgets.amount,
+      recurring: budgets.recurring,
+      yearMonth: budgets.yearMonth,
+      startsMonth: budgets.startsMonth,
+      categoryName: categories.name,
+      categoryIcon: categories.icon,
+      categoryColor: categories.color,
+    })
+    .from(budgets)
+    .innerJoin(categories, eq(budgets.categoryId, categories.id))
+    .where(
+      and(eq(budgets.userId, userId), eq(categories.type, "expense")),
+    );
+
+  const bSum: BudgetAmountRow[] = budgetRows.map((b) => ({
+    categoryId: b.categoryId,
+    amount: b.amount,
+    recurring: b.recurring,
+    yearMonth: b.yearMonth,
+    startsMonth: b.startsMonth,
+  }));
+
+  const categoryBudgeted = new Map<string, number>();
+  for (const ts of monthStarts) {
+    const caps = effectiveBudgetByCategoryForMonth(bSum, new Date(ts));
+    for (const [catId, amt] of caps) {
+      if (amt <= 0) continue;
+      categoryBudgeted.set(catId, (categoryBudgeted.get(catId) ?? 0) + amt);
+    }
+  }
+
+  const spentRows = await db
+    .select({
+      categoryId: categories.id,
+      amount: transactions.amount,
+      occurredAt: transactions.occurredAt,
+    })
+    .from(transactions)
+    .innerJoin(categories, eq(transactions.categoryId, categories.id))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        eq(categories.type, "expense"),
+        gte(transactions.occurredAt, range.start),
+        lte(transactions.occurredAt, range.end),
+      ),
+    );
+
+  const spentByCat = new Map<string, number>();
+  for (const r of spentRows) {
+    const d = new Date(r.occurredAt);
+    const ms = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+    const caps = effectiveBudgetByCategoryForMonth(bSum, new Date(ms));
+    if ((caps.get(r.categoryId) ?? 0) > 0) {
+      spentByCat.set(
+        r.categoryId,
+        (spentByCat.get(r.categoryId) ?? 0) + r.amount,
+      );
+    }
+  }
+
+  const monthStartSet = new Set(monthStarts);
+
+  return [...categoryBudgeted.keys()]
+    .map((categoryId) => {
+      const budgeted = categoryBudgeted.get(categoryId) ?? 0;
+      const s = spentByCat.get(categoryId) ?? 0;
+      const pct =
+        budgeted > 0 ? Math.min(100, Math.round((s / budgeted) * 100)) : 0;
+
+      const rowsForCat = budgetRows.filter((b) => b.categoryId === categoryId);
+      const rec = rowsForCat.find(
+        (b) =>
+          b.recurring &&
+          monthStarts.some((ts) =>
+            recurringBudgetAppliesInMonth(b.startsMonth, new Date(ts)),
+          ),
+      );
+      const spec = rowsForCat.find((b) => {
+        if (b.recurring) return false;
+        const bd = new Date(b.yearMonth);
+        const k = new Date(bd.getFullYear(), bd.getMonth(), 1).getTime();
+        return monthStartSet.has(k);
+      });
+      const chosen = rec ?? spec;
+      if (!chosen) return null;
+
+      return {
+        budgetId: chosen.budgetId,
+        categoryId,
+        categoryName: chosen.categoryName,
+        categoryIcon: chosen.categoryIcon,
+        categoryColor: chosen.categoryColor,
+        budgeted,
+        spent: s,
+        pct,
+        budgetScope: (rec ? "recurring" : "month") as "month" | "recurring",
+      };
+    })
+    .filter(
+      (
+        r,
+      ): r is {
+        budgetId: string;
+        categoryId: string;
+        categoryName: string;
+        categoryIcon: string | null;
+        categoryColor: string;
+        budgeted: number;
+        spent: number;
+        pct: number;
+        budgetScope: "month" | "recurring";
+      } => r != null,
+    )
+    .sort((a, b) => a.categoryName.localeCompare(b.categoryName));
 }
 
 export async function listGoals(userId: string) {

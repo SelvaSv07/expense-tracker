@@ -17,7 +17,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { timeQueryString } from "@/lib/search-params-time";
+import {
+  parseLocalDateParam,
+  timeQueryString,
+} from "@/lib/search-params-time";
 import type { TimePreset } from "@/lib/time-range";
 import { cn } from "@/lib/utils";
 import {
@@ -91,9 +94,9 @@ function parseCustomRangeFromSearchParams(
   const fromRaw = searchParams.get("from");
   const toRaw = searchParams.get("to");
   if (!fromRaw || !toRaw) return undefined;
-  const from = new Date(fromRaw);
-  const to = new Date(toRaw);
-  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return undefined;
+  const from = parseLocalDateParam(fromRaw);
+  const to = parseLocalDateParam(toRaw);
+  if (!from || !to) return undefined;
   return { from, to };
 }
 

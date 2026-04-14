@@ -7,6 +7,15 @@ export async function proxy(request: NextRequest) {
     headers: await headers(),
   });
 
+  const pathname = request.nextUrl.pathname;
+
+  if (pathname === "/") {
+    if (!session) {
+      return NextResponse.redirect(new URL("/sign-in", request.url));
+    }
+    return NextResponse.rewrite(new URL("/overview", request.url));
+  }
+
   if (!session) {
     return NextResponse.redirect(new URL("/sign-in", request.url));
   }
@@ -15,5 +24,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/overview", "/transactions", "/budget", "/goals", "/ai"],
+  matcher: ["/", "/overview", "/transactions", "/budget", "/goals", "/ai"],
 };

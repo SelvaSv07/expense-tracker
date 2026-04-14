@@ -149,6 +149,10 @@ export const budgets = pgTable(
       .notNull()
       .references(() => categories.id, { onDelete: "cascade" }),
     yearMonth: timestamp("year_month").notNull(),
+    /** When true, `year_month` is `BUDGET_RECURRING_ANCHOR`; amount repeats from `starts_month` onward. */
+    recurring: boolean("recurring").notNull().default(false),
+    /** First month a recurring budget applies (`null` = every month, for legacy rows). Ignored when `recurring` is false. */
+    startsMonth: timestamp("starts_month"),
     amount: integer("amount").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

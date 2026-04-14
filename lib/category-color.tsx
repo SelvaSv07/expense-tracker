@@ -42,6 +42,16 @@ export function categoryIconShelfStyle(hex: string): CSSProperties {
   };
 }
 
+/** Border uses the same category chroma as the tinted fill and icon (no neutral grey blend). */
+export function categoryIconShelfBorderStyle(
+  hex: string | null | undefined,
+): CSSProperties {
+  const c = normalizeCategoryColor(hex);
+  return {
+    borderColor: `color-mix(in srgb, ${c} 52%, transparent)`,
+  };
+}
+
 export function CategoryIconShelf({
   icon,
   color,
