@@ -1,7 +1,10 @@
 "use client";
 
-import { AddTransactionDialog } from "@/components/transactions/add-transaction-dialog";
-import type { TransactionCategoryOption } from "@/components/transactions/add-transaction-dialog";
+import {
+  AddTransactionDialog,
+  type PaymentMethodOption,
+  type TransactionCategoryOption,
+} from "@/components/transactions/add-transaction-dialog";
 import { ExportMenu } from "@/components/transactions/export-menu";
 import { TimeframeToolbar } from "@/components/dashboard/timeframe-toolbar";
 import { buttonVariants } from "@/components/ui/button";
@@ -15,12 +18,14 @@ export function TransactionsPageHeader({
   monthKey,
   custom,
   categories,
+  paymentMethods,
 }: {
   preset: TimePreset;
   basePath: string;
   monthKey?: string;
   custom?: { from: Date; to: Date };
   categories: TransactionCategoryOption[];
+  paymentMethods: PaymentMethodOption[];
 }) {
   return (
     <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between">
@@ -54,6 +59,7 @@ export function TransactionsPageHeader({
         />
         <AddTransactionDialog
           categories={categories}
+          paymentMethods={paymentMethods}
           trigger={
             <button
               type="button"

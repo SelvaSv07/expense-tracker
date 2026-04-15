@@ -51,7 +51,7 @@ const schema = z.object({
   occurredAt: z.string().min(1, "Choose date and time"),
   transactionName: z.string().optional(),
   note: z.string().optional(),
-  paymentMethod: z.string().optional(),
+  paymentMethod: z.string().min(1, "Choose a payment method"),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -92,11 +92,18 @@ export type TransactionCategoryOption = {
   color: string;
 };
 
+export type PaymentMethodOption = {
+  id: string;
+  name: string;
+};
+
 export function AddTransactionDialog({
   categories,
+  paymentMethods,
   trigger,
 }: {
   categories: TransactionCategoryOption[];
+  paymentMethods: PaymentMethodOption[];
   /** Optional trigger; defaults to “Add transaction” button. */
   trigger?: ReactNode;
 }) {
@@ -119,6 +126,11 @@ export function AddTransactionDialog({
     [categories],
   );
 
+  const defaultPaymentName = useMemo(
+    () => paymentMethods[0]?.name ?? "",
+    [paymentMethods],
+  );
+
   const form = useForm<FormValues>({
     mode: "onSubmit",
     reValidateMode: "onChange",
@@ -130,7 +142,7 @@ export function AddTransactionDialog({
       amount: "",
       transactionName: "",
       note: "",
-      paymentMethod: "Credit Card",
+      paymentMethod: defaultPaymentName,
     },
   });
 
@@ -162,7 +174,7 @@ export function AddTransactionDialog({
       occurredAt: new Date(values.occurredAt),
       transactionName: values.transactionName || undefined,
       note: values.note || undefined,
-      paymentMethod: values.paymentMethod || undefined,
+      paymentMethod: values.paymentMethod,
     });
     setOpen(false);
     form.reset({
@@ -172,7 +184,7 @@ export function AddTransactionDialog({
       amount: "",
       transactionName: "",
       note: "",
-      paymentMethod: "Credit Card",
+      paymentMethod: defaultPaymentName,
     });
     router.refresh();
   }
@@ -191,7 +203,7 @@ export function AddTransactionDialog({
             amount: "",
             transactionName: "",
             note: "",
-            paymentMethod: "Credit Card",
+            paymentMethod: paymentMethods[0]?.name ?? "",
           });
         }
       }}
@@ -346,7 +358,7 @@ export function AddTransactionDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="amount">Amount (INR)</Label>
-            <Input id="amount" {...form.register("amount")} placeholder="0.00" />
+            <Input id="amount" {...form.register("amount")} placeholder="0" />
             {form.formState.errors.amount ? (
               <p className="text-destructive text-sm">
                 {form.formState.errors.amount.message}
@@ -386,8 +398,34 @@ export function AddTransactionDialog({
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="paymentMethod">Method</Label>
-            <Input id="paymentMethod" {...form.register("paymentMethod")} />
+            <Label>Payment method</Label>
+            <Controller
+              control={form.control}
+              name="paymentMethod"
+              render={({ field }) => (
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  disabled={paymentMethods.length === 0}
+                >
+                  <SelectTrigger className="w-full min-w-0">
+                    <SelectValue placeholder="Choose method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paymentMethods.map((m) => (
+                      <SelectItem key={m.id} value={m.name}>
+                        {m.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {form.formState.errors.paymentMethod ? (
+              <p className="text-destructive text-sm">
+                {form.formState.errors.paymentMethod.message}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="note">Note</Label>
@@ -404,7 +442,9 @@ export function AddTransactionDialog({
             <Button
               type="submit"
               className="cursor-pointer"
-              disabled={filteredCategories.length === 0}
+              disabled={
+                filteredCategories.length === 0 || paymentMethods.length === 0
+              }
             >
               Save
             </Button>

@@ -1,22 +1,22 @@
 /**
- * Monetary `amount` fields in the database are integers in paisa (100 paisa = ₹1).
+ * Monetary `amount` fields in the database are integers in whole rupees (₹).
  */
 
 const inrFormatter = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
 });
 
-/** Format a stored integer amount (paisa) for display. */
+/** Format a stored integer amount (rupees) for display. */
 export function formatInr(amount: number): string {
-  return inrFormatter.format(amount / 100);
+  return inrFormatter.format(amount);
 }
 
-/** Parse user input (e.g. "1,234.56") into paisa for storage. */
+/** Parse user input (e.g. "1,234") into rupees for storage. */
 export function parseInrInput(value: string): number {
   const n = Number.parseFloat(value.replace(/,/g, "").replace(/[^0-9.-]/g, ""));
   if (Number.isNaN(n)) return 0;
-  return Math.round(n * 100);
+  return Math.round(n);
 }

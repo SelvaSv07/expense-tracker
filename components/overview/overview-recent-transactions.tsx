@@ -2,6 +2,7 @@
 
 import { TransactionCategoryLabel } from "@/components/transactions/transaction-category-label";
 import { formatInr } from "@/lib/money";
+import { formatPaymentMethodLabel } from "@/lib/utils";
 import {
   ArrowDown,
   ArrowUp,
@@ -344,7 +345,7 @@ export function OverviewRecentTransactions({ rows }: { rows: Tx[] }) {
                   className={`${COL_METHOD} truncate text-xs font-medium`}
                   style={{ color: "var(--cazura-text)" }}
                 >
-                  {tx.paymentMethod?.replace(/_/g, " ") ?? "—"}
+                  {formatPaymentMethodLabel(tx.paymentMethod)}
                 </span>
                 <div className="flex w-12 shrink-0 justify-end">
                   <Link

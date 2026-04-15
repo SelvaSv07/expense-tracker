@@ -9,9 +9,7 @@ function pctChange(current: number, previous: number): number {
 }
 
 function formatPct(n: number): string {
-  if (n >= 10 || n === 0) return `${n.toFixed(1)}%`;
-  if (n >= 1) return `${n.toFixed(2)}%`;
-  return `${n.toFixed(2)}%`;
+  return `${Math.round(n)}%`;
 }
 
 function StatMiniCard({

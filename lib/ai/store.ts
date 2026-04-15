@@ -69,6 +69,17 @@ export async function upsertUserAiSettings(input: {
   }
 }
 
+export async function updateUserAiModel(userId: string, model: string) {
+  const now = new Date();
+  await db
+    .update(userAiSettings)
+    .set({
+      model,
+      updatedAt: now,
+    })
+    .where(eq(userAiSettings.userId, userId));
+}
+
 export async function createConversation(userId: string, title = "New Chat") {
   const id = crypto.randomUUID();
   const now = new Date();
@@ -157,6 +168,7 @@ export async function createApprovalState(input: {
   serializedRunState: string;
   toolName?: string | null;
   toolArguments?: string | null;
+  toolCallId?: string | null;
 }) {
   const id = crypto.randomUUID();
   await db.insert(aiApprovalStates).values({
@@ -167,6 +179,7 @@ export async function createApprovalState(input: {
     status: "pending",
     toolName: input.toolName ?? null,
     toolArguments: input.toolArguments ?? null,
+    toolCallId: input.toolCallId ?? null,
     createdAt: new Date(),
     updatedAt: new Date(),
   });

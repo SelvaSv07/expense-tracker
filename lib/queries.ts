@@ -4,6 +4,7 @@ import {
   categories,
   goalContributions,
   goals,
+  paymentMethods,
   transactions,
   userFinance,
 } from "@/db/schema";
@@ -17,7 +18,7 @@ import {
 import type { MonthRef, TimePreset, TimeRange } from "@/lib/time-range";
 import { getRangeFromPreset, getPreviousRange } from "@/lib/time-range";
 import { format, startOfMonth, subMonths } from "date-fns";
-import { and, count, desc, eq, gte, lte } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, isNotNull, lte } from "drizzle-orm";
 
 export async function getOpeningBalanceForUser(userId: string): Promise<number> {
   const [r] = await db
@@ -34,6 +35,58 @@ export async function listCategories(userId: string) {
     .from(categories)
     .where(eq(categories.userId, userId))
     .orderBy(categories.name);
+}
+
+const DEFAULT_PAYMENT_METHOD_SEED = [
+  { name: "Cash", sortOrder: 0 },
+  { name: "Card", sortOrder: 1 },
+  { name: "UPI", sortOrder: 2 },
+] as const;
+
+/** Ensures default Cash / Card / UPI exist, then returns rows ordered for pickers. */
+export async function listPaymentMethods(userId: string) {
+  let rows = await db
+    .select()
+    .from(paymentMethods)
+    .where(eq(paymentMethods.userId, userId))
+    .orderBy(asc(paymentMethods.sortOrder), asc(paymentMethods.name));
+
+  if (rows.length === 0) {
+    for (const d of DEFAULT_PAYMENT_METHOD_SEED) {
+      await db.insert(paymentMethods).values({
+        id: crypto.randomUUID(),
+        userId,
+        name: d.name,
+        sortOrder: d.sortOrder,
+      });
+    }
+    rows = await db
+      .select()
+      .from(paymentMethods)
+      .where(eq(paymentMethods.userId, userId))
+      .orderBy(asc(paymentMethods.sortOrder), asc(paymentMethods.name));
+  }
+  return rows;
+}
+
+/** Transaction counts per stored `payment_method` string (non-null only). */
+export async function getPaymentMethodUsageByName(userId: string) {
+  const txRows = await db
+    .select({
+      method: transactions.paymentMethod,
+      n: count(),
+    })
+    .from(transactions)
+    .where(
+      and(eq(transactions.userId, userId), isNotNull(transactions.paymentMethod)),
+    )
+    .groupBy(transactions.paymentMethod);
+
+  const map: Record<string, number> = {};
+  for (const r of txRows) {
+    if (r.method) map[r.method] = Number(r.n);
+  }
+  return map;
 }
 
 /** Per-category usage (transactions + budgets) for this user. */
@@ -214,7 +267,7 @@ function weekBucketDateRangeLabel(
   return `${ordinalDayEn(startDay)} ${monthShort} - ${ordinalDayEn(endDay)} ${monthShort}`;
 }
 
-/** Income/expense buckets for the cash-flow chart (amounts in paisa). */
+/** Income/expense buckets for the cash-flow chart (amounts in rupees). */
 export async function getCashFlowSeries(
   userId: string,
   year: number,

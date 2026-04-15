@@ -35,8 +35,7 @@ const MONTH_LONG: Record<string, string> = {
 
 function formatYAxisInr(rupees: number): string {
   const v = Math.round(rupees);
-  if (v >= 10000000)
-    return `₹${(v / 10000000).toFixed(v % 10000000 === 0 ? 0 : 1)}Cr`;
+  if (v >= 10000000) return `₹${Math.round(v / 10000000)}Cr`;
   if (v >= 100000) return `₹${Math.round(v / 100000)}L`;
   if (v >= 1000) return `₹${Math.round(v / 1000)}K`;
   return `₹${v}`;
@@ -158,7 +157,7 @@ function CashFlowTooltip({
             className="mb-1 text-xs leading-tight font-bold"
             style={{ color: "var(--cazura-text)" }}
           >
-            {formatInr(Math.round(Number(income.value) * 100))}
+            {formatInr(Math.round(Number(income.value)))}
           </p>
           <div className="flex items-center gap-1">
             <Wand2
@@ -205,7 +204,7 @@ function CashFlowTooltip({
             className="mb-1 text-xs leading-tight font-bold"
             style={{ color: "var(--cazura-text)" }}
           >
-            {formatInr(Math.round(Number(expense.value) * 100))}
+            {formatInr(Math.round(Number(expense.value)))}
           </p>
           <div className="flex items-center gap-1">
             <Wand2
@@ -235,8 +234,8 @@ export function IncomeExpenseChart({ data }: { data: Row[] }) {
 
   const chartData = data.map((d) => ({
     name: d.label,
-    income: Math.max(0, d.income / 100),
-    expense: Math.max(0, d.expense / 100),
+    income: Math.max(0, d.income),
+    expense: Math.max(0, d.expense),
   }));
 
   const maxVal = Math.max(

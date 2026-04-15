@@ -297,7 +297,7 @@ export function AddBudgetDialog({
               id="budget-amount"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00"
+              placeholder="0"
               className="h-11"
             />
           </div>

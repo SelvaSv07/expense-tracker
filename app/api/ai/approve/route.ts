@@ -1,9 +1,9 @@
 import { createCazuraAgent } from "@/lib/ai/cazura-agent";
+import { DEFAULT_OPENAI_MODEL_ID } from "@/lib/ai/openai-model-options";
 import { decryptApiKey } from "@/lib/ai/crypto";
-import { runAgentWithSse } from "@/lib/ai/runner";
+import { runAgentStreaming } from "@/lib/ai/runner";
 import { checkRateLimit } from "@/lib/ai/rate-limit";
 import {
-  appendMessage,
   getApprovalState,
   getUserAiSettings,
   setApprovalStateStatus,
@@ -55,11 +55,22 @@ export async function POST(request: Request) {
     );
   }
   const apiKey = decryptApiKey(settings.openaiApiKeyEnc);
-  const agent = createCazuraAgent(settings.model ?? "gpt-4.1-mini");
+  const agent = createCazuraAgent(settings.model ?? DEFAULT_OPENAI_MODEL_ID);
 
   const runState = await RunState.fromString(agent, approval.serializedRunState);
   const interruptions = runState.getInterruptions();
-  const target = interruptions[0];
+
+  // Find the exact interruption matching the stored toolCallId, or fall back to matching by toolName
+  let target = interruptions[0];
+  if (approval.toolCallId) {
+    const match = interruptions.find((item) => {
+      const raw = item.rawItem as Record<string, unknown> | undefined;
+      if (!raw) return false;
+      return raw.call_id === approval.toolCallId || raw.id === approval.toolCallId;
+    });
+    if (match) target = match;
+  }
+
   if (!target) {
     await setApprovalStateStatus(parsed.data.approvalId, "expired");
     return NextResponse.json({ error: "No pending interruption to resolve" }, { status: 410 });
@@ -68,60 +79,60 @@ export async function POST(request: Request) {
   if (parsed.data.decision === "approve") {
     runState.approve(target);
     await setApprovalStateStatus(parsed.data.approvalId, "approved");
-    await appendMessage({
-      userId: session.user.id,
-      conversationId: approval.conversationId,
-      role: "tool",
-      content: `Approved tool: ${approval.toolName ?? "unknown"}`,
-      metadata: approval.toolArguments ?? null,
-    });
   } else {
     runState.reject(target, {
       message: parsed.data.rejectMessage?.trim() || "User rejected this action.",
     });
     await setApprovalStateStatus(parsed.data.approvalId, "rejected");
-    await appendMessage({
-      userId: session.user.id,
-      conversationId: approval.conversationId,
-      role: "tool",
-      content: `Rejected tool: ${approval.toolName ?? "unknown"}`,
-      metadata: approval.toolArguments ?? null,
-    });
   }
 
   const stream = createSseStream(async (writer) => {
-    writer.send("meta", {
-      conversationId: approval.conversationId,
-      approvalId: parsed.data.approvalId,
-      decision: parsed.data.decision,
-    });
+    writer.send("meta", { conversationId: approval.conversationId });
 
-    const result = await runAgentWithSse({
-      writer,
+    const result = await runAgentStreaming({
       agent,
       messageOrState: runState,
-      context: { userId: session.user!.id },
+      context: { userId: session.user.id },
       apiKey,
-      userId: session.user!.id,
+      userId: session.user.id,
       conversationId: approval.conversationId,
+      onTextDelta(delta) {
+        writer.send("token", { value: delta });
+      },
+      onToolData(dataList) {
+        writer.send("assistant_tool_data", { toolDataList: dataList });
+      },
+      signal: request.signal,
     });
 
-    if (result.assistantText) {
-      await appendMessage({
-        userId: session.user!.id,
-        conversationId: approval.conversationId,
-        role: "assistant",
-        content: result.assistantText,
-      });
-      writer.send("assistant", { content: result.assistantText });
+    const toolDataList = result.assistantToolDataList;
+    let assistantContent = (result.assistantText ?? "").trim();
+    if (!assistantContent) {
+      assistantContent = result.assistantPayload?.message?.trim() ?? "";
+    }
+    if (!assistantContent && toolDataList.length > 0) {
+      assistantContent = "Here is the data from your finance tools.";
     }
 
+    if (assistantContent || toolDataList.length > 0 || result.assistantPayload) {
+      if (assistantContent) {
+        writer.send("assistant", { content: assistantContent });
+      }
+      if (result.assistantPayload) {
+        writer.send("assistant_payload", { payload: result.assistantPayload });
+      }
+      if (toolDataList.length > 0) {
+        writer.send("assistant_tool_data", { toolDataList });
+      }
+    }
     if (result.approvals.length > 0) {
       writer.send("interruptions", { approvals: result.approvals });
     }
     writer.send("done", { conversationId: approval.conversationId });
     writer.close();
-  });
+  }, request.signal);
 
-  return new Response(stream, { headers: SSE_HEADERS });
+  return new Response(stream, {
+    headers: SSE_HEADERS,
+  });
 }

@@ -38,7 +38,7 @@ const PAT_SPENT = "cazuraSpentStripes";
 function formatYAxisInrCompact(v: number): string {
   const r = "\u20B9";
   const n = Math.abs(v);
-  if (n >= 10000000) return `${r}${(v / 10000000).toFixed(1)}Cr`;
+  if (n >= 10000000) return `${r}${Math.round(v / 10000000)}Cr`;
   if (n >= 100000) return `${r}${Math.round(v / 100000)}L`;
   if (n >= 1000) return `${r}${Math.round(v / 1000)}K`;
   return `${r}${Math.round(v)}`;
@@ -90,8 +90,8 @@ function CazuraBudgetTooltip({
   const spentEntry = payload.find((p) => p.dataKey === "spent");
   const budgetRupee = Number(budgetEntry?.value ?? 0);
   const spentRupee = Number(spentEntry?.value ?? 0);
-  const budgetPaisa = Math.round(budgetRupee * 100);
-  const spentPaisa = Math.round(spentRupee * 100);
+  const budgetRupees = Math.round(budgetRupee);
+  const spentRupees = Math.round(spentRupee);
 
   const title = chartAxisTooltipTitle(String(label), chartYear, xAxisKind);
 
@@ -125,7 +125,7 @@ function CazuraBudgetTooltip({
             className="text-[11px] font-bold tabular-nums leading-tight"
             style={{ color: "var(--cazura-text)" }}
           >
-            {formatInr(budgetPaisa)}
+            {formatInr(budgetRupees)}
           </span>
         </div>
         <div className="flex items-center justify-between gap-4">
@@ -143,7 +143,7 @@ function CazuraBudgetTooltip({
             className="text-[11px] font-bold tabular-nums leading-tight"
             style={{ color: "var(--cazura-text)" }}
           >
-            {formatInr(spentPaisa)}
+            {formatInr(spentRupees)}
           </span>
         </div>
       </div>
@@ -232,8 +232,8 @@ export function BudgetBarChart({
 }) {
   const chart = data.map((d) => ({
     month: d.month,
-    budgeted: d.budgeted / 100,
-    spent: d.spent / 100,
+    budgeted: d.budgeted,
+    spent: d.spent,
   }));
 
   const cazura = variant === "cazura";
@@ -315,7 +315,7 @@ export function BudgetBarChart({
             ) : (
               <Tooltip
                 formatter={(value) =>
-                  formatInr(Math.round(Number(value ?? 0) * 100))
+                  formatInr(Math.round(Number(value ?? 0)))
                 }
               />
             )}

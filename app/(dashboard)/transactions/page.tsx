@@ -8,6 +8,7 @@ import {
   getExpenseBreakdown,
   getTransactionAggregates,
   listCategories,
+  listPaymentMethods,
   listTransactionsWithCategory,
 } from "@/lib/queries";
 import { getSession } from "@/lib/session";
@@ -32,11 +33,12 @@ export default async function TransactionsPage({
     parseTimeFromSearchParams(sp);
   const userId = session.user.id;
 
-  const [agg, txs, breakdown, cats] = await Promise.all([
+  const [agg, txs, breakdown, cats, payMethods] = await Promise.all([
     getTransactionAggregates(userId, preset, custom, monthRef),
     listTransactionsWithCategory(userId, preset, custom, monthRef),
     getExpenseBreakdown(userId, preset, custom, monthRef),
     listCategories(userId),
+    listPaymentMethods(userId),
   ]);
 
   const categoryOptions = cats.map((c) => ({
@@ -54,6 +56,11 @@ export default async function TransactionsPage({
   const categoryColors = Object.fromEntries(
     cats.map((c) => [c.name, c.color] as const),
   );
+
+  const paymentMethodOptions = payMethods.map((m) => ({
+    id: m.id,
+    name: m.name,
+  }));
 
   const activityRows = txs.map((tx) => ({
     id: tx.id,
@@ -99,6 +106,7 @@ export default async function TransactionsPage({
         monthKey={monthKey}
         custom={custom}
         categories={categoryOptions}
+        paymentMethods={paymentMethodOptions}
       />
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-4">
@@ -122,6 +130,7 @@ export default async function TransactionsPage({
           />
           <TransactionsSubscriptionsCard
             categories={categoryOptions}
+            paymentMethods={paymentMethodOptions}
             items={subscriptionItems}
           />
         </div>

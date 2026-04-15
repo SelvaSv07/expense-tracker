@@ -84,7 +84,7 @@ export const accountRelations = relations(account, ({ one }) => ({
   }),
 }));
 
-// --- App (INR; integer columns store paisa / minor units) ---
+// --- App (INR; integer columns store whole rupees) ---
 
 /** One row per user: starting balance for running balance (optional). */
 export const userFinance = pgTable("user_finance", {
@@ -171,13 +171,13 @@ export const aiApprovalStates = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    conversationId: text("conversation_id")
-      .notNull()
-      .references(() => aiConversations.id, { onDelete: "cascade" }),
+    /** Opaque session id (matches client; chats are not persisted server-side). */
+    conversationId: text("conversation_id").notNull(),
     serializedRunState: text("serialized_run_state").notNull(),
     status: aiApprovalStatus("status").notNull().default("pending"),
     toolName: text("tool_name"),
     toolArguments: text("tool_arguments"),
+    toolCallId: text("tool_call_id"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -202,6 +202,24 @@ export const categories = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("categories_user_id_idx").on(t.userId)],
+);
+
+/** User-defined labels for payment method (e.g. Cash, Card, UPI). Stored name is written to `transactions.payment_method`. */
+export const paymentMethods = pgTable(
+  "payment_methods",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("payment_methods_user_id_idx").on(t.userId),
+    uniqueIndex("payment_methods_user_name_uidx").on(t.userId, t.name),
+  ],
 );
 
 export const transactions = pgTable(
@@ -285,6 +303,13 @@ export const goalContributions = pgTable(
   },
   (t) => [index("goal_contributions_goal_occurred_idx").on(t.goalId, t.occurredAt)],
 );
+
+export const paymentMethodsRelations = relations(paymentMethods, ({ one }) => ({
+  user: one(user, {
+    fields: [paymentMethods.userId],
+    references: [user.id],
+  }),
+}));
 
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
   user: one(user, {
@@ -383,6 +408,7 @@ export const userRelations = relations(user, ({ many, one }) => ({
     fields: [user.id],
     references: [userFinance.userId],
   }),
+  paymentMethods: many(paymentMethods),
   transactions: many(transactions),
   budgets: many(budgets),
   aiSettings: one(userAiSettings, {

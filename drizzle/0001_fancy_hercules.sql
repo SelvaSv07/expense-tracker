@@ -1,0 +1,1 @@
+ALTER TABLE "ai_approval_states" ADD COLUMN "tool_call_id" text;

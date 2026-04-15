@@ -3,9 +3,13 @@ import { createTransaction, deleteTransaction } from "@/actions/transactions";
 import { createCategory, deleteCategory, updateCategory } from "@/actions/categories";
 import { deleteBudget, upsertBudget } from "@/actions/budgets";
 import { db } from "@/db";
-import { budgets, categories, goals, transactions } from "@/db/schema";
+import { budgets, categories } from "@/db/schema";
+import { assistantUiOutputSchema } from "@/lib/ai/output";
+import { listTransactionsToolEnvelopeForUser } from "@/lib/ai/mcp-queries";
+import { toMcpToolResultEnvelope } from "@/lib/ai/tool-ui";
 import { getBalance, getGoalMetrics, listGoals } from "@/lib/queries";
-import { and, desc, eq, gte, ilike, lte, sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
+import { DEFAULT_OPENAI_MODEL_ID } from "@/lib/ai/openai-model-options";
 import { Agent, tool } from "@openai/agents";
 import { z } from "zod";
 
@@ -13,53 +17,89 @@ export type CazuraAgentContext = {
   userId: string;
 };
 
+function requireUserId(ctx: unknown): string {
+  const userId = (ctx as { context?: { userId?: string } } | undefined)?.context?.userId;
+  if (!userId) throw new Error("Missing user context");
+  return userId;
+}
+
 const readToolInstruction = `You are Cazura AI assistant for personal finance.
 You can only help with transactions, categories, budgets, and goals.
 Never access or modify authentication, profile, sessions, or API-key settings.
-For any write action (create/update/delete), call the available tool and wait for explicit approval from the user.
-When amounts are user-facing, show INR with 2 decimals.`;
+
+## Category resolution for transactions
+When the user wants to add a transaction:
+1. Silently call list_categories to fetch available categories. NEVER show the raw category list to the user.
+2. Match the transaction description to the best category using common sense:
+   - Petrol, fuel, cab, auto, bus, train, flight, toll, parking → Transport
+   - Restaurant, cafe, food order, Swiggy, Zomato → Dining
+   - Supermarket, vegetables, fruits, provisions → Groceries
+   - Electricity, water, internet, phone, gas bill → Utilities
+   - Doctor, pharmacy, medicine, hospital → Healthcare
+   - Clothes, electronics, Amazon, Flipkart → Shopping
+   - Movie, Netflix, concert, game → Entertainment
+   Use your judgement for items not listed — most expenses can be reasonably mapped.
+3. If the match is obvious (e.g. "petrol" → Transport), proceed directly with that category. Do NOT ask.
+4. Only if genuinely ambiguous (could reasonably fit 2+ categories), ask a short question naming just the 2-3 likely options by name, e.g. "Should I file this under Dining or Groceries?"
+5. If no existing category fits at all, tell the user and suggest creating one.
+6. NEVER dump the full category table. NEVER show category IDs, icons, or colors to the user.
+
+## Defaults
+- Payment method: default to "UPI" unless the user explicitly states another method (cash, card, net banking, etc.).
+- Date/time: default to the current moment (now) unless the user explicitly mentions a date or time (e.g. "yesterday", "last Friday", "on 10th").
+
+## Write actions
+For any write action (create/update/delete), call the tool directly once you have all details. The app shows Yes/No approval buttons automatically.
+Do not ask the user to type "approve" or "reject" in chat.
+When user intent is to add/update/delete but a required detail (amount) is missing, ask one short follow-up question and wait. Do NOT ask for date or payment method — use the defaults above.
+If user replies with confirmation words ("ok", "yes", "do it", "create it"), continue the current pending draft instead of changing topic.
+
+## Display rules
+Keep replies concise and action-oriented.
+When amounts are user-facing, show INR as whole rupees only (e.g. ₹300).
+Do not list all categories, budgets, or transactions unless the user explicitly asks to see them.
+When list_transactions has run, do not paste a markdown transaction table; the UI renders the tool output automatically.
+For any factual answer about user finance data, you MUST call one or more tools first.
+Treat tool outputs as the only source of truth; never fabricate rows, totals, or identifiers.
+
+## Output format
+Return output strictly as JSON matching this UI contract:
+- formatVersion: "1"
+- responseType: question|summary|result|approval_prompt|error
+- message: short primary text
+- markdown: string or null
+- followUpQuestion: string or null (set when details are missing)
+- suggestedReplies: always an array (empty if none)
+- cards: always an array (empty if none)
+- table: object or null.
+Never return plain text outside this JSON format.`;
 
 const listTransactionsTool = tool({
   name: "list_transactions",
   description:
-    "List transactions for the signed-in user with optional text and date filters.",
+    "List transactions for the signed-in user. Server applies defaults: limit 20, no date filter, no search unless provided.",
   parameters: z.object({
-    fromIso: z.string().optional().describe("Start date (ISO)"),
-    toIso: z.string().optional().describe("End date (ISO)"),
-    search: z.string().optional().describe("Search in transaction name or note"),
-    limit: z.number().int().min(1).max(100).optional(),
+    fromIso: z
+      .union([z.string().datetime(), z.null()])
+      .describe("Start date (ISO), or null for no start filter"),
+    toIso: z
+      .union([z.string().datetime(), z.null()])
+      .describe("End date (ISO), or null for no end filter"),
+    search: z
+      .union([z.string(), z.null()])
+      .describe("Search in transaction name or note, or null for no text filter"),
+    limit: z
+      .union([z.number().int().min(1).max(100), z.null()])
+      .describe("Max rows (default 20 when null)"),
   }),
   async execute(input, context) {
-    const where = [eq(transactions.userId, context.context.userId)];
-    if (input.fromIso) where.push(gte(transactions.occurredAt, new Date(input.fromIso)));
-    if (input.toIso) where.push(lte(transactions.occurredAt, new Date(input.toIso)));
-    if (input.search?.trim()) {
-      const q = `%${input.search.trim()}%`;
-      where.push(
-        sql`(${transactions.transactionName} ilike ${q} or ${transactions.note} ilike ${q})`,
-      );
-    }
-    const rows = await db
-      .select({
-        id: transactions.id,
-        amount: transactions.amount,
-        occurredAt: transactions.occurredAt,
-        transactionName: transactions.transactionName,
-        note: transactions.note,
-        paymentMethod: transactions.paymentMethod,
-        categoryName: categories.name,
-        categoryType: categories.type,
-      })
-      .from(transactions)
-      .innerJoin(categories, eq(transactions.categoryId, categories.id))
-      .where(and(...where))
-      .orderBy(desc(transactions.occurredAt))
-      .limit(input.limit ?? 20);
-    return rows.map((r) => ({
-      ...r,
-      amountInr: Number((r.amount / 100).toFixed(2)),
-      occurredAt: r.occurredAt.toISOString(),
-    }));
+    const userId = requireUserId(context);
+    return listTransactionsToolEnvelopeForUser(userId, {
+      fromIso: input.fromIso,
+      toIso: input.toIso,
+      search: input.search,
+      limit: input.limit ?? 20,
+    });
   },
 });
 
@@ -68,23 +108,58 @@ const transactionSummaryTool = tool({
   description: "Get current balance and high-level goal metrics.",
   parameters: z.object({}),
   async execute(_, context) {
+    const userId = requireUserId(context);
     const [balance, goalMetrics] = await Promise.all([
-      getBalance(context.context.userId),
-      getGoalMetrics(context.context.userId),
+      getBalance(userId),
+      getGoalMetrics(userId),
     ]);
-    return {
-      balancePaisa: balance,
-      balanceInr: Number((balance / 100).toFixed(2)),
-      goalMetrics,
-    };
+    return toMcpToolResultEnvelope({
+      tool: "transaction_summary",
+      kind: "transaction_summary",
+      data: {
+        balanceInr: balance,
+        goalMetrics,
+      },
+    });
   },
 });
 
 const listCategoriesTool = tool({
   name: "list_categories",
-  description: "List all categories for the user.",
-  parameters: z.object({ type: z.enum(["income", "expense"]).optional() }),
+  description:
+    "List all categories for the user. Use this internally to resolve category IDs when creating transactions. Do NOT display the raw output to the user.",
+  parameters: z.object({
+    type: z.union([z.enum(["income", "expense"]), z.null()]),
+  }),
   async execute(input, context) {
+    const userId = requireUserId(context);
+    const rows = await db
+      .select({
+        id: categories.id,
+        name: categories.name,
+        type: categories.type,
+      })
+      .from(categories)
+      .where(
+        and(
+          eq(categories.userId, userId),
+          input.type ? eq(categories.type, input.type) : undefined,
+        ),
+      )
+      .orderBy(categories.name);
+    return { rows };
+  },
+});
+
+const showCategoriesTool = tool({
+  name: "show_categories",
+  description:
+    "Display the user's categories in a styled UI card. Use ONLY when the user explicitly asks to see or list their categories.",
+  parameters: z.object({
+    type: z.union([z.enum(["income", "expense"]), z.null()]),
+  }),
+  async execute(input, context) {
+    const userId = requireUserId(context);
     const rows = await db
       .select({
         id: categories.id,
@@ -96,12 +171,16 @@ const listCategoriesTool = tool({
       .from(categories)
       .where(
         and(
-          eq(categories.userId, context.context.userId),
+          eq(categories.userId, userId),
           input.type ? eq(categories.type, input.type) : undefined,
         ),
       )
       .orderBy(categories.name);
-    return rows;
+    return toMcpToolResultEnvelope({
+      tool: "show_categories",
+      kind: "category_list",
+      data: { rows },
+    });
   },
 });
 
@@ -110,6 +189,7 @@ const listBudgetsTool = tool({
   description: "List budget rows for the user.",
   parameters: z.object({}),
   async execute(_, context) {
+    const userId = requireUserId(context);
     const rows = await db
       .select({
         id: budgets.id,
@@ -120,14 +200,19 @@ const listBudgetsTool = tool({
         amount: budgets.amount,
       })
       .from(budgets)
-      .where(eq(budgets.userId, context.context.userId))
+      .where(eq(budgets.userId, userId))
       .orderBy(desc(budgets.updatedAt));
-    return rows.map((r) => ({
+    const mappedRows = rows.map((r) => ({
       ...r,
-      amountInr: Number((r.amount / 100).toFixed(2)),
+      amountInr: r.amount,
       yearMonth: r.yearMonth.toISOString(),
       startsMonth: r.startsMonth ? r.startsMonth.toISOString() : null,
     }));
+    return toMcpToolResultEnvelope({
+      tool: "list_budgets",
+      kind: "budget_list",
+      data: { rows: mappedRows },
+    });
   },
 });
 
@@ -136,13 +221,19 @@ const listGoalsTool = tool({
   description: "List goals and contribution progress.",
   parameters: z.object({}),
   async execute(_, context) {
-    const rows = await listGoals(context.context.userId);
-    return rows.map((g) => ({
+    const userId = requireUserId(context);
+    const rows = await listGoals(userId);
+    const mappedRows = rows.map((g) => ({
       ...g,
-      targetAmountInr: Number((g.targetAmount / 100).toFixed(2)),
-      savedAmountInr: Number((g.savedAmount / 100).toFixed(2)),
+      targetAmountInr: g.targetAmount,
+      savedAmountInr: g.savedAmount,
       targetDate: g.targetDate ? g.targetDate.toISOString() : null,
     }));
+    return toMcpToolResultEnvelope({
+      tool: "list_goals",
+      kind: "goal_list",
+      data: { rows: mappedRows },
+    });
   },
 });
 
@@ -152,22 +243,31 @@ const createTransactionTool = tool({
   parameters: z.object({
     categoryId: z.string(),
     amountInr: z.number().positive(),
-    occurredAtIso: z.string().describe("ISO date-time"),
-    transactionName: z.string().optional(),
-    note: z.string().optional(),
-    paymentMethod: z.string().optional(),
+    occurredAtIso: z.string().datetime().describe("ISO date-time"),
+    transactionName: z.union([z.string(), z.null()]),
+    note: z.union([z.string(), z.null()]),
+    paymentMethod: z
+      .union([z.string(), z.null()])
+      .describe(
+        "Must match a payment method name from the user's settings (e.g. Cash, Card, UPI), or null.",
+      ),
   }),
   needsApproval: true,
-  async execute(input) {
+  async execute(input, context) {
+    requireUserId(context);
     const id = await createTransaction({
       categoryId: input.categoryId,
-      amount: Math.round(input.amountInr * 100),
+      amount: Math.round(input.amountInr),
       occurredAt: new Date(input.occurredAtIso),
-      transactionName: input.transactionName,
-      note: input.note,
-      paymentMethod: input.paymentMethod,
+      transactionName: input.transactionName ?? undefined,
+      note: input.note ?? undefined,
+      paymentMethod: input.paymentMethod ?? undefined,
     });
-    return { id };
+    return toMcpToolResultEnvelope({
+      tool: "create_transaction",
+      kind: "mutation_result",
+      data: { ok: true, id },
+    });
   },
 });
 
@@ -176,9 +276,14 @@ const deleteTransactionTool = tool({
   description: "Delete a transaction by id (requires approval).",
   parameters: z.object({ transactionId: z.string() }),
   needsApproval: true,
-  async execute(input) {
+  async execute(input, context) {
+    requireUserId(context);
     await deleteTransaction(input.transactionId);
-    return { ok: true };
+    return toMcpToolResultEnvelope({
+      tool: "delete_transaction",
+      kind: "mutation_result",
+      data: { ok: true, id: null },
+    });
   },
 });
 
@@ -186,15 +291,20 @@ const createCategoryTool = tool({
   name: "create_category",
   description: "Create a category (requires approval).",
   parameters: z.object({
-    name: z.string(),
+    name: z.string().min(1).max(80),
     type: z.enum(["income", "expense"]),
     icon: z.string(),
     color: z.string(),
   }),
   needsApproval: true,
-  async execute(input) {
+  async execute(input, context) {
+    requireUserId(context);
     await createCategory(input);
-    return { ok: true };
+    return toMcpToolResultEnvelope({
+      tool: "create_category",
+      kind: "mutation_result",
+      data: { ok: true, id: null },
+    });
   },
 });
 
@@ -203,15 +313,20 @@ const updateCategoryTool = tool({
   description: "Update an existing category (requires approval).",
   parameters: z.object({
     categoryId: z.string(),
-    name: z.string(),
+    name: z.string().min(1).max(80),
     type: z.enum(["income", "expense"]),
     icon: z.string(),
     color: z.string(),
   }),
   needsApproval: true,
-  async execute(input) {
+  async execute(input, context) {
+    requireUserId(context);
     await updateCategory(input);
-    return { ok: true };
+    return toMcpToolResultEnvelope({
+      tool: "update_category",
+      kind: "mutation_result",
+      data: { ok: true, id: null },
+    });
   },
 });
 
@@ -220,9 +335,14 @@ const deleteCategoryTool = tool({
   description: "Delete an existing category (requires approval).",
   parameters: z.object({ categoryId: z.string() }),
   needsApproval: true,
-  async execute(input) {
+  async execute(input, context) {
+    requireUserId(context);
     await deleteCategory(input.categoryId);
-    return { ok: true };
+    return toMcpToolResultEnvelope({
+      tool: "delete_category",
+      kind: "mutation_result",
+      data: { ok: true, id: null },
+    });
   },
 });
 
@@ -233,17 +353,22 @@ const upsertBudgetTool = tool({
     categoryId: z.string(),
     amountInr: z.number().nonnegative(),
     recurring: z.boolean(),
-    monthIso: z.string().describe("Any date within the desired month"),
+    monthIso: z.string().datetime().describe("Any date within the desired month"),
   }),
   needsApproval: true,
-  async execute(input) {
+  async execute(input, context) {
+    requireUserId(context);
     await upsertBudget({
       categoryId: input.categoryId,
-      amount: Math.round(input.amountInr * 100),
+      amount: Math.round(input.amountInr),
       recurring: input.recurring,
       month: new Date(input.monthIso),
     });
-    return { ok: true };
+    return toMcpToolResultEnvelope({
+      tool: "upsert_budget",
+      kind: "mutation_result",
+      data: { ok: true, id: null },
+    });
   },
 });
 
@@ -252,9 +377,14 @@ const deleteBudgetTool = tool({
   description: "Delete a budget by id (requires approval).",
   parameters: z.object({ budgetId: z.string() }),
   needsApproval: true,
-  async execute(input) {
+  async execute(input, context) {
+    requireUserId(context);
     await deleteBudget(input.budgetId);
-    return { ok: true };
+    return toMcpToolResultEnvelope({
+      tool: "delete_budget",
+      kind: "mutation_result",
+      data: { ok: true, id: null },
+    });
   },
 });
 
@@ -262,20 +392,25 @@ const createGoalTool = tool({
   name: "create_goal",
   description: "Create a savings goal (requires approval).",
   parameters: z.object({
-    name: z.string(),
+    name: z.string().min(1),
     targetAmountInr: z.number().positive(),
-    targetDateIso: z.string().optional(),
-    notes: z.string().optional(),
+    targetDateIso: z.union([z.string().datetime(), z.null()]),
+    notes: z.union([z.string(), z.null()]),
   }),
   needsApproval: true,
-  async execute(input) {
+  async execute(input, context) {
+    requireUserId(context);
     const id = await createGoal({
       name: input.name,
-      targetAmount: Math.round(input.targetAmountInr * 100),
+      targetAmount: Math.round(input.targetAmountInr),
       targetDate: input.targetDateIso ? new Date(input.targetDateIso) : undefined,
-      notes: input.notes,
+      notes: input.notes ?? undefined,
     });
-    return { id };
+    return toMcpToolResultEnvelope({
+      tool: "create_goal",
+      kind: "mutation_result",
+      data: { ok: true, id },
+    });
   },
 });
 
@@ -285,18 +420,23 @@ const addGoalContributionTool = tool({
   parameters: z.object({
     goalId: z.string(),
     amountInr: z.number().positive(),
-    occurredAtIso: z.string(),
-    note: z.string().optional(),
+    occurredAtIso: z.string().datetime(),
+    note: z.union([z.string(), z.null()]),
   }),
   needsApproval: true,
-  async execute(input) {
+  async execute(input, context) {
+    requireUserId(context);
     await addGoalContribution({
       goalId: input.goalId,
-      amount: Math.round(input.amountInr * 100),
+      amount: Math.round(input.amountInr),
       occurredAt: new Date(input.occurredAtIso),
-      note: input.note,
+      note: input.note ?? undefined,
     });
-    return { ok: true };
+    return toMcpToolResultEnvelope({
+      tool: "add_goal_contribution",
+      kind: "mutation_result",
+      data: { ok: true, id: null },
+    });
   },
 });
 
@@ -305,9 +445,14 @@ const deleteGoalTool = tool({
   description: "Delete a goal by id (requires approval).",
   parameters: z.object({ goalId: z.string() }),
   needsApproval: true,
-  async execute(input) {
+  async execute(input, context) {
+    requireUserId(context);
     await deleteGoal(input.goalId);
-    return { ok: true };
+    return toMcpToolResultEnvelope({
+      tool: "delete_goal",
+      kind: "mutation_result",
+      data: { ok: true, id: null },
+    });
   },
 });
 
@@ -316,11 +461,11 @@ const exportTransactionsTool = tool({
   description:
     "Get a relative download link for transaction export. Format can be excel or pdf.",
   parameters: z.object({
-    format: z.enum(["excel", "pdf"]).default("excel"),
-    tf: z.enum(["today", "month", "year", "custom"]).default("month"),
-    from: z.string().optional(),
-    to: z.string().optional(),
-    m: z.string().optional(),
+    format: z.enum(["excel", "pdf"]),
+    tf: z.enum(["today", "month", "year", "custom"]),
+    from: z.union([z.string(), z.null()]),
+    to: z.union([z.string(), z.null()]),
+    m: z.union([z.string(), z.null()]),
   }),
   async execute(input) {
     const params = new URLSearchParams();
@@ -329,22 +474,28 @@ const exportTransactionsTool = tool({
     if (input.from) params.set("from", input.from);
     if (input.to) params.set("to", input.to);
     if (input.m) params.set("m", input.m);
-    return {
-      href: `/api/export/transactions?${params.toString()}`,
-      method: "GET",
-    };
+    return toMcpToolResultEnvelope({
+      tool: "export_transactions",
+      kind: "export_link",
+      data: {
+        href: `/api/export/transactions?${params.toString()}`,
+        method: "GET",
+      },
+    });
   },
 });
 
-export function createCazuraAgent(defaultModel = "gpt-4.1-mini") {
-  return new Agent<CazuraAgentContext>({
+export function createCazuraAgent(defaultModel = DEFAULT_OPENAI_MODEL_ID) {
+  return new Agent<CazuraAgentContext, typeof assistantUiOutputSchema>({
     name: "Cazura AI Assistant",
     model: defaultModel,
     instructions: readToolInstruction,
+    outputType: assistantUiOutputSchema,
     tools: [
       listTransactionsTool,
       transactionSummaryTool,
       listCategoriesTool,
+      showCategoriesTool,
       listBudgetsTool,
       listGoalsTool,
       createTransactionTool,

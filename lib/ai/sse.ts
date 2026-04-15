@@ -7,15 +7,32 @@ export type SseWriter = {
 
 export function createSseStream(
   execute: (writer: SseWriter) => Promise<void>,
+  signal?: AbortSignal,
 ): ReadableStream<Uint8Array> {
   return new ReadableStream<Uint8Array>({
     start(controller) {
       const write = (event: string, data: unknown) => {
-        controller.enqueue(
-          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
-        );
+        try {
+          controller.enqueue(
+            encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
+          );
+        } catch {
+          // Stream already closed
+        }
       };
-      const close = () => controller.close();
+      const close = () => {
+        try {
+          controller.close();
+        } catch {
+          // Already closed
+        }
+      };
+
+      if (signal?.aborted) {
+        close();
+        return;
+      }
+      signal?.addEventListener("abort", () => close(), { once: true });
 
       execute({ send: write, close }).catch((error) => {
         write("error", {

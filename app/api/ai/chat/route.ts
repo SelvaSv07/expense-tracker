@@ -1,22 +1,46 @@
 import { createCazuraAgent } from "@/lib/ai/cazura-agent";
+import { DEFAULT_OPENAI_MODEL_ID } from "@/lib/ai/openai-model-options";
 import { decryptApiKey } from "@/lib/ai/crypto";
-import { runAgentWithSse } from "@/lib/ai/runner";
+import { runAgentStreaming } from "@/lib/ai/runner";
 import { checkRateLimit } from "@/lib/ai/rate-limit";
-import {
-  appendMessage,
-  createConversation,
-  ensureConversationOwnership,
-  getUserAiSettings,
-} from "@/lib/ai/store";
+import { getUserAiSettings } from "@/lib/ai/store";
 import { createSseStream, SSE_HEADERS } from "@/lib/ai/sse";
 import { getSession } from "@/lib/session";
+import type { AgentInputItem } from "@openai/agents";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 const bodySchema = z.object({
-  message: z.string().trim().min(1).max(8000),
-  conversationId: z.string().optional(),
+  conversationId: z.string().uuid(),
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string().max(32000),
+      }),
+    )
+    .min(1)
+    .max(80),
 });
+
+function buildHistoryInput(
+  messages: { role: "user" | "assistant"; content: string }[],
+): AgentInputItem[] {
+  const historyInput: AgentInputItem[] = [];
+  for (const m of messages) {
+    if (m.role === "user") {
+      historyInput.push({ role: "user", content: m.content });
+      continue;
+    }
+    historyInput.push({
+      type: "message",
+      role: "assistant",
+      status: "completed",
+      content: [{ type: "output_text", text: m.content }],
+    });
+  }
+  return historyInput;
+}
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -37,6 +61,23 @@ export async function POST(request: Request) {
     );
   }
 
+  const { conversationId, messages } = parsed.data;
+  const last = messages[messages.length - 1];
+  if (last.role !== "user") {
+    return NextResponse.json(
+      { error: "The last message in the transcript must be from the user." },
+      { status: 400 },
+    );
+  }
+
+  const totalChars = messages.reduce((a, m) => a + m.content.length, 0);
+  if (totalChars > 400_000) {
+    return NextResponse.json(
+      { error: "Conversation transcript is too long. Start a new chat." },
+      { status: 400 },
+    );
+  }
+
   const settings = await getUserAiSettings(session.user.id);
   if (!settings) {
     return NextResponse.json(
@@ -45,49 +86,50 @@ export async function POST(request: Request) {
     );
   }
 
-  const conversationId =
-    parsed.data.conversationId ?? (await createConversation(session.user.id));
-
-  if (parsed.data.conversationId) {
-    const owned = await ensureConversationOwnership(
-      session.user.id,
-      parsed.data.conversationId,
-    );
-    if (!owned) {
-      return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
-    }
-  }
-
-  await appendMessage({
-    userId: session.user.id,
-    conversationId,
-    role: "user",
-    content: parsed.data.message,
-  });
+  const historyInput = buildHistoryInput(messages);
 
   const apiKey = decryptApiKey(settings.openaiApiKeyEnc);
-  const agent = createCazuraAgent(settings.model ?? "gpt-4.1-mini");
+  const agent = createCazuraAgent(settings.model ?? DEFAULT_OPENAI_MODEL_ID);
 
   const stream = createSseStream(async (writer) => {
     writer.send("meta", { conversationId });
-    const result = await runAgentWithSse({
-      writer,
+
+    const result = await runAgentStreaming({
       agent,
-      messageOrState: parsed.data.message,
-      context: { userId: session.user!.id },
+      messageOrState: historyInput,
+      context: { userId: session.user.id },
       apiKey,
-      userId: session.user!.id,
+      userId: session.user.id,
       conversationId,
+      onTextDelta(delta) {
+        writer.send("token", { value: delta });
+      },
+      onToolData(dataList) {
+        writer.send("assistant_tool_data", { toolDataList: dataList });
+      },
+      signal: request.signal,
     });
 
-    if (result.assistantText) {
-      await appendMessage({
-        userId: session.user!.id,
-        conversationId,
-        role: "assistant",
-        content: result.assistantText,
-      });
-      writer.send("assistant", { content: result.assistantText });
+    const toolDataList = result.assistantToolDataList;
+
+    let assistantContent = (result.assistantText ?? "").trim();
+    if (!assistantContent) {
+      assistantContent = result.assistantPayload?.message?.trim() ?? "";
+    }
+    if (!assistantContent && toolDataList.length > 0) {
+      assistantContent = "Here is the data from your finance tools.";
+    }
+
+    if (assistantContent || toolDataList.length > 0 || result.assistantPayload) {
+      if (assistantContent) {
+        writer.send("assistant", { content: assistantContent });
+      }
+      if (result.assistantPayload) {
+        writer.send("assistant_payload", { payload: result.assistantPayload });
+      }
+      if (toolDataList.length > 0) {
+        writer.send("assistant_tool_data", { toolDataList });
+      }
     }
 
     if (result.approvals.length > 0) {
@@ -95,7 +137,7 @@ export async function POST(request: Request) {
     }
     writer.send("done", { conversationId });
     writer.close();
-  });
+  }, request.signal);
 
   return new Response(stream, {
     headers: SSE_HEADERS,

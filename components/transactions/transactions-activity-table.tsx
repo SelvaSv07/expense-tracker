@@ -1,6 +1,7 @@
 "use client";
 
 import { TransactionCategoryLabel } from "@/components/transactions/transaction-category-label";
+import { TransactionDetailDialog } from "@/components/transactions/transaction-detail-dialog";
 import { TransactionRowActions } from "@/components/transactions/transaction-row-actions";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -10,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatInr } from "@/lib/money";
-import { cn } from "@/lib/utils";
+import { cn, formatPaymentMethodLabel } from "@/lib/utils";
 import {
   ArrowDown,
   ArrowUp,
@@ -59,6 +60,7 @@ export function TransactionsActivityTable({ rows }: { rows: ActivityRow[] }) {
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(20);
   const [page, setPage] = useState(1);
   const [dateSort, setDateSort] = useState<"asc" | "desc">("desc");
+  const [detailRow, setDetailRow] = useState<ActivityRow | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -103,6 +105,12 @@ export function TransactionsActivityTable({ rows }: { rows: ActivityRow[] }) {
         borderColor: "var(--cazura-border)",
       }}
     >
+      <TransactionDetailDialog
+        row={detailRow}
+        onOpenChange={(open) => {
+          if (!open) setDetailRow(null);
+        }}
+      />
       <div className="flex flex-wrap items-center gap-2.5 px-3 pt-3">
         <span
           className="min-w-0 flex-1 text-[15px] font-bold"
@@ -242,13 +250,23 @@ export function TransactionsActivityTable({ rows }: { rows: ActivityRow[] }) {
             pageRows.map((tx, i) => (
               <div
                 key={tx.id}
+                tabIndex={0}
+                aria-haspopup="dialog"
+                aria-label={`View details: ${tx.categoryName}, ${tx.categoryType === "income" ? "income" : "expense"} ${formatInr(tx.amount)}`}
                 className={cn(
-                  "flex min-w-[720px] items-center gap-3 px-3 py-3",
+                  "flex min-w-[720px] cursor-pointer items-center gap-3 px-3 py-3 outline-none transition-colors hover:bg-[var(--cazura-canvas)] focus-visible:bg-[var(--cazura-canvas)] focus-visible:ring-2 focus-visible:ring-[var(--cazura-border)] focus-visible:ring-offset-2",
                   i < pageRows.length - 1 && "border-b",
                 )}
                 style={{
                   background: "var(--cazura-panel)",
                   borderColor: "var(--cazura-row-divider)",
+                }}
+                onClick={() => setDetailRow(tx)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setDetailRow(tx);
+                  }
                 }}
               >
                 <div className="w-[200px] shrink-0">
@@ -289,9 +307,13 @@ export function TransactionsActivityTable({ rows }: { rows: ActivityRow[] }) {
                   className="w-[120px] shrink-0 text-xs font-medium"
                   style={{ color: "var(--cazura-text)" }}
                 >
-                  {tx.paymentMethod?.trim() || "—"}
+                  {formatPaymentMethodLabel(tx.paymentMethod)}
                 </span>
-                <div className="flex w-12 shrink-0 justify-end">
+                <div
+                  className="flex w-12 shrink-0 justify-end"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
                   <TransactionRowActions id={tx.id} variant="cazura" />
                 </div>
               </div>

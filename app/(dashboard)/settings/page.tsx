@@ -1,5 +1,5 @@
 import { getSession } from "@/lib/session";
-import { ChevronRight, Sparkles, Tags } from "lucide-react";
+import { ChevronRight, CreditCard, Sparkles, Tags } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -10,6 +10,13 @@ const settingsOptions = [
     description:
       "Income and expense labels, icons, and colors used across transactions and budgets.",
     icon: Tags,
+  },
+  {
+    href: "/settings/payment-methods",
+    title: "Payment methods",
+    description:
+      "Cash, card, UPI, and custom labels shown when you record how a transaction was paid.",
+    icon: CreditCard,
   },
   {
     href: "/settings/ai",

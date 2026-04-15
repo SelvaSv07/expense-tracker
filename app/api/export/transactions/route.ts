@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
         category: r.categoryName,
         type: r.categoryType,
         date: r.occurredAt.toISOString(),
-        amount: (r.amount / 100).toFixed(2),
+        amount: String(r.amount),
         method: r.paymentMethod ?? "",
         transactionName: r.transactionName ?? "",
         note: r.note ?? "",
@@ -99,9 +99,9 @@ export async function GET(request: NextRequest) {
     );
     y -= 24;
     for (const r of rows.slice(0, 40)) {
-      const amt = (r.amount / 100).toLocaleString("en-IN", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+      const amt = r.amount.toLocaleString("en-IN", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
       });
       // Standard PDF fonts (Helvetica) cannot encode ₹ (U+20B9); use ASCII "Rs."
       const line = `${r.categoryName} | ${r.categoryType} | ${r.occurredAt.toLocaleString()} | Rs. ${amt}`;

@@ -1,35 +1,73 @@
 "use server";
 
 import { decryptApiKey, encryptApiKey } from "@/lib/ai/crypto";
-import { getUserAiSettings, upsertUserAiSettings } from "@/lib/ai/store";
+import {
+  getUserAiSettings,
+  updateUserAiModel,
+  upsertUserAiSettings,
+} from "@/lib/ai/store";
 import { getSession } from "@/lib/session";
 import OpenAI from "openai";
+import { DEFAULT_OPENAI_MODEL_ID } from "@/lib/ai/openai-model-options";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-const upsertSchema = z.object({
-  apiKey: z.string().min(20, "Please provide a valid OpenAI API key"),
-  model: z.string().min(1).optional(),
+const modelSchema = z
+  .string()
+  .min(1, "Model is required")
+  .max(128, "Model id is too long")
+  .transform((s) => s.trim());
+
+const saveSchema = z.object({
+  /** When empty, only the model is updated if a key is already saved. */
+  apiKey: z.string().optional(),
+  model: modelSchema,
 });
 
-export async function saveAiSettings(input: z.infer<typeof upsertSchema>) {
-  const parsed = upsertSchema.parse(input);
+function revalidateAiSettings() {
+  revalidatePath("/settings");
+  revalidatePath("/settings/ai");
+  revalidatePath("/ai");
+}
+
+export async function saveAiSettings(input: z.infer<typeof saveSchema>) {
+  const parsed = saveSchema.parse(input);
   const session = await getSession();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const apiKey = parsed.apiKey.trim();
-  const last4 = apiKey.slice(-4);
+  const existing = await getUserAiSettings(session.user.id);
+  const keyTrim = parsed.apiKey?.trim() ?? "";
 
-  await upsertUserAiSettings({
-    userId: session.user.id,
-    openaiApiKeyEnc: encryptApiKey(apiKey),
-    keyLast4: last4,
-    model: parsed.model?.trim() || null,
-  });
+  if (keyTrim.length > 0) {
+    if (keyTrim.length < 20) {
+      throw new Error("Please provide a valid OpenAI API key");
+    }
+    const last4 = keyTrim.slice(-4);
+    await upsertUserAiSettings({
+      userId: session.user.id,
+      openaiApiKeyEnc: encryptApiKey(keyTrim),
+      keyLast4: last4,
+      model: parsed.model,
+    });
+    revalidateAiSettings();
+    return {
+      ok: true as const,
+      keyLast4: last4,
+    };
+  }
 
-  return {
-    ok: true as const,
-    keyLast4: last4,
-  };
+  if (existing) {
+    await updateUserAiModel(session.user.id, parsed.model);
+    revalidateAiSettings();
+    return {
+      ok: true as const,
+      keyLast4: existing.keyLast4,
+    };
+  }
+
+  throw new Error(
+    "Enter your OpenAI API key once to get started. After that you can change the model anytime without re-entering the key.",
+  );
 }
 
 export async function getAiSettingsPreview() {
@@ -39,7 +77,7 @@ export async function getAiSettingsPreview() {
   return {
     configured: Boolean(row),
     keyLast4: row?.keyLast4 ?? null,
-    model: row?.model ?? "gpt-4.1-mini",
+    model: row?.model ?? DEFAULT_OPENAI_MODEL_ID,
   };
 }
 

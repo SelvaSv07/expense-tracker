@@ -2,6 +2,7 @@
 
 import { db } from "@/db";
 import { categories, transactions } from "@/db/schema";
+import { listPaymentMethods } from "@/lib/queries";
 import { getSession } from "@/lib/session";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -33,6 +34,19 @@ export async function createTransaction(input: z.infer<typeof schema>) {
     .limit(1);
   if (!c) throw new Error("Invalid category");
 
+  let paymentMethod: string | null = null;
+  const rawPm = parsed.paymentMethod?.trim();
+  if (rawPm) {
+    const methods = await listPaymentMethods(session.user.id);
+    const allowed = new Set(methods.map((m) => m.name));
+    if (!allowed.has(rawPm)) {
+      throw new Error(
+        `Invalid payment method "${rawPm}". Add or choose a method from Settings → Payment methods.`,
+      );
+    }
+    paymentMethod = rawPm;
+  }
+
   const id = crypto.randomUUID();
   await db.insert(transactions).values({
     id,
@@ -42,10 +56,12 @@ export async function createTransaction(input: z.infer<typeof schema>) {
     occurredAt: parsed.occurredAt,
     transactionName: parsed.transactionName?.trim() || null,
     note: parsed.note?.trim() || null,
-    paymentMethod: parsed.paymentMethod ?? null,
+    paymentMethod,
   });
 
   revalidatePath("/");
+  revalidatePath("/transactions");
+  revalidatePath("/settings/payment-methods");
   return id;
 }
 

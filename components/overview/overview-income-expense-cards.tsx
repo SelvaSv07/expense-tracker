@@ -92,7 +92,7 @@ export function OverviewIncomeExpenseCards({
                   style={{ color: "var(--cazura-teal-mid)" }}
                 >
                   {incomePct >= 0 ? "+" : ""}
-                  {incomePct.toFixed(1)}%
+                  {Math.round(incomePct)}%
                 </span>
               </div>
             </div>
@@ -170,7 +170,7 @@ export function OverviewIncomeExpenseCards({
                   style={{ color: "var(--cazura-red)" }}
                 >
                   {expensePct >= 0 ? "+" : ""}
-                  {Math.abs(expensePct).toFixed(2)}%
+                  {Math.round(Math.abs(expensePct))}%
                 </span>
               </div>
             </div>

@@ -25,7 +25,7 @@ export function ExpensePieChart({
 }) {
   const chartData = data.map((d) => ({
     name: d.name,
-    value: d.value / 100,
+    value: d.value,
   }));
 
   return (
@@ -53,7 +53,7 @@ export function ExpensePieChart({
           </Pie>
           <Tooltip
             formatter={(value) =>
-              formatInr(Math.round(Number(value ?? 0) * 100))
+              formatInr(Math.round(Number(value ?? 0)))
             }
           />
         </PieChart>

@@ -2,10 +2,14 @@
 
 import {
   AddTransactionDialog,
+  type PaymentMethodOption,
   type TransactionCategoryOption,
 } from "@/components/transactions/add-transaction-dialog";
 import { buttonVariants } from "@/components/ui/button";
-import { CategoryIconShelf } from "@/lib/category-color";
+import {
+  CategoryIconShelf,
+  categoryIconShelfBorderStyle,
+} from "@/lib/category-color";
 import { formatInr } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { MoreHorizontal, Plus, Wand2 } from "lucide-react";
@@ -22,9 +26,11 @@ export type SubscriptionSpotlightItem = {
 
 export function TransactionsSubscriptionsCard({
   categories,
+  paymentMethods,
   items,
 }: {
   categories: TransactionCategoryOption[];
+  paymentMethods: PaymentMethodOption[];
   items: SubscriptionSpotlightItem[];
 }) {
   return (
@@ -75,6 +81,7 @@ export function TransactionsSubscriptionsCard({
         </Link>
         <AddTransactionDialog
           categories={categories}
+          paymentMethods={paymentMethods}
           trigger={
             <button
               type="button"
@@ -115,9 +122,7 @@ export function TransactionsSubscriptionsCard({
                   icon={s.icon}
                   color={s.color}
                   className="size-10 rounded-full border p-2"
-                  style={{
-                    borderColor: "var(--cazura-border)",
-                  }}
+                  style={categoryIconShelfBorderStyle(s.color)}
                   iconClassName="size-4"
                 />
                 <div className="flex min-w-0 flex-col gap-0.5">

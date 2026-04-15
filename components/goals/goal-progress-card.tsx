@@ -4,7 +4,7 @@ import { AddContributionDialog } from "@/components/goals/add-contribution-dialo
 import { DeleteGoalMenu } from "@/components/goals/delete-goal-menu";
 import { Button } from "@/components/ui/button";
 import { formatInr } from "@/lib/money";
-import { ChevronRight, Target } from "lucide-react";
+import { ChevronRight, Plus, Target } from "lucide-react";
 import { useState } from "react";
 
 export function GoalProgressCard({
@@ -42,7 +42,7 @@ export function GoalProgressCard({
         className="group flex flex-col gap-4 rounded-xl border p-3 sm:p-4"
         style={{
           background: "#f6f6f6",
-          borderColor: "#d4d4d4",
+          borderColor: "var(--cazura-border)",
         }}
       >
         <div className="flex items-center justify-between gap-2">
@@ -72,15 +72,10 @@ export function GoalProgressCard({
             <Button
               type="button"
               size="sm"
-              variant="outline"
-              className="h-7 cursor-pointer px-2.5 text-xs font-medium opacity-100 shadow-none transition-opacity sm:opacity-0 sm:shadow-none sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-              style={{
-                borderColor: "var(--cazura-border)",
-                color: "var(--cazura-text)",
-                background: "var(--cazura-panel)",
-              }}
+              className="h-7 cursor-pointer gap-1.5 border-transparent bg-[var(--cazura-teal)] px-2.5 text-xs font-medium text-white opacity-100 shadow-none transition-[opacity,background-color] hover:bg-[var(--cazura-teal-mid)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
               onClick={() => setContributionOpen(true)}
             >
+              <Plus className="size-3.5" strokeWidth={2.25} aria-hidden />
               Add contribution
             </Button>
             {targetDate ? (

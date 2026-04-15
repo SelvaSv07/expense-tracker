@@ -57,19 +57,6 @@ export function TransactionCategoryLabel({
             {transactionName}
           </span>
         ) : null}
-        {hasNote ? (
-          <span
-            className={chipClass()}
-            style={{
-              background: "var(--cazura-canvas)",
-              borderColor: "var(--cazura-border)",
-              color: "var(--cazura-text)",
-            }}
-            title={note ?? undefined}
-          >
-            {note}
-          </span>
-        ) : null}
       </div>
     );
   }

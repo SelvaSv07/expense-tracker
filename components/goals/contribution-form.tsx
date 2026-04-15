@@ -104,24 +104,24 @@ export function ContributionForm({
       <div
         className={
           isStack
-            ? "flex flex-col gap-3 sm:flex-row sm:items-end"
+            ? "flex flex-col gap-3"
             : "flex flex-wrap items-end gap-2"
         }
       >
-        <div className="space-y-2">
+        <div className={isStack ? "w-full space-y-2" : "space-y-2"}>
           <Label htmlFor="contribution-date">Date</Label>
           <DatePicker
             id="contribution-date"
-            className={isStack ? "w-full sm:w-[140px]" : "w-[140px]"}
+            className={isStack ? "w-full" : "w-[140px]"}
             value={occurredAt}
             onChange={setOccurredAt}
           />
         </div>
-        <div className="space-y-2">
+        <div className={isStack ? "w-full space-y-2" : "space-y-2"}>
           <Label htmlFor="contribution-time">Time</Label>
           <TimeField
             id="contribution-time"
-            className={isStack ? "w-full sm:w-[120px]" : "w-[120px]"}
+            className={isStack ? "w-full" : "w-[120px]"}
             value={occurredAt}
             onChange={setOccurredAt}
           />

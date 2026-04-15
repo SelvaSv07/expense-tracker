@@ -18,7 +18,7 @@ export function SavingsLineChart({
 }) {
   const chart = data.map((d) => ({
     date: d.date,
-    cumulative: d.cumulative / 100,
+    cumulative: d.cumulative,
   }));
 
   return (
@@ -35,7 +35,7 @@ export function SavingsLineChart({
           <YAxis tickFormatter={(v) => `₹${v}`} tick={{ fontSize: 10 }} />
           <Tooltip
             formatter={(value) =>
-              formatInr(Math.round(Number(value ?? 0) * 100))
+              formatInr(Math.round(Number(value ?? 0)))
             }
           />
           <Line
