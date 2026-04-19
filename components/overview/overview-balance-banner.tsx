@@ -1,7 +1,7 @@
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { formatInr } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { ChevronRight, Plus, Send } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
 import Link from "next/link";
 
 export function OverviewBalanceBanner({
@@ -63,48 +63,24 @@ export function OverviewBalanceBanner({
         </div>
       </div>
 
-      <div className="relative flex items-center gap-3">
-        <div className="flex flex-col items-center gap-1">
-          <Link
-            href="/transactions"
-            aria-label="Add transaction"
-            className={cn(
-              buttonVariants({ size: "icon" }),
-              "size-8 rounded-full border-0 shadow-[0_4px_12px_rgba(59,96,100,0.5)]",
-            )}
-            style={{ background: "var(--cazura-teal)" }}
-          >
-            <Plus className="size-[15px] text-white" strokeWidth={2.5} />
-          </Link>
-          <span
-            className="text-[10px] font-medium"
-            style={{ color: "var(--cazura-muted)" }}
-          >
-            Add
-          </span>
-        </div>
-        <div className="flex flex-col items-center gap-1">
-          <Button
-            size="icon"
-            variant="secondary"
-            className="size-8 rounded-full border-0"
-            style={{ background: "var(--cazura-panel)" }}
-            type="button"
-            aria-label="Send"
-          >
-            <Send
-              className="size-3.5"
-              strokeWidth={1.8}
-              color="var(--cazura-teal)"
-            />
-          </Button>
-          <span
-            className="text-[10px] font-medium"
-            style={{ color: "var(--cazura-muted)" }}
-          >
-            Send
-          </span>
-        </div>
+      <div className="relative flex flex-col items-center gap-1">
+        <Link
+          href="/transactions"
+          aria-label="Add transaction"
+          className={cn(
+            buttonVariants({ size: "icon" }),
+            "size-8 rounded-full border-0 shadow-[0_4px_12px_rgba(59,96,100,0.5)]",
+          )}
+          style={{ background: "var(--cazura-teal)" }}
+        >
+          <Plus className="size-[15px] text-white" strokeWidth={2.5} />
+        </Link>
+        <span
+          className="text-[10px] font-medium"
+          style={{ color: "var(--cazura-muted)" }}
+        >
+          Add
+        </span>
       </div>
     </div>
   );

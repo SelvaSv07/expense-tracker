@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
+  date,
   index,
   integer,
   pgTable,
@@ -92,6 +93,8 @@ export const userFinance = pgTable("user_finance", {
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
   openingBalance: integer("opening_balance").notNull().default(0),
+  /** UTC calendar date (YYYY-MM-DD) of last passive subscription materialization; limits runs to once per day. */
+  lastSubscriptionMaterializeOn: date("last_subscription_materialize_on"),
 });
 
 export const userFinanceRelations = relations(userFinance, ({ one }) => ({
@@ -222,6 +225,33 @@ export const paymentMethods = pgTable(
   ],
 );
 
+/** Recurring or fixed-term bill (EMI, streaming, etc.); charges become `transactions` rows when due. */
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    serviceName: text("service_name").notNull(),
+    categoryId: text("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "restrict" }),
+    amount: integer("amount").notNull(),
+    paymentMethod: text("payment_method"),
+    note: text("note"),
+    /** `recurring` | `until` */
+    scheduleType: text("schedule_type").notNull(),
+    /** Day of month (1–31); clamped to month length when posting. */
+    billingDay: integer("billing_day").notNull(),
+    untilYear: integer("until_year"),
+    untilMonth: integer("until_month"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("subscriptions_user_id_idx").on(t.userId)],
+);
+
 export const transactions = pgTable(
   "transactions",
   {
@@ -237,10 +267,16 @@ export const transactions = pgTable(
     transactionName: text("transaction_name"),
     note: text("note"),
     paymentMethod: text("payment_method"),
+    subscriptionId: text("subscription_id").references(() => subscriptions.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (t) => [index("transactions_user_occurred_idx").on(t.userId, t.occurredAt)],
+  (t) => [
+    index("transactions_user_occurred_idx").on(t.userId, t.occurredAt),
+    index("transactions_subscription_id_idx").on(t.subscriptionId),
+  ],
 );
 
 export const budgets = pgTable(
@@ -318,6 +354,19 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
   }),
   transactions: many(transactions),
   budgets: many(budgets),
+  subscriptions: many(subscriptions),
+}));
+
+export const subscriptionsRelations = relations(subscriptions, ({ one, many }) => ({
+  user: one(user, {
+    fields: [subscriptions.userId],
+    references: [user.id],
+  }),
+  category: one(categories, {
+    fields: [subscriptions.categoryId],
+    references: [categories.id],
+  }),
+  transactions: many(transactions),
 }));
 
 export const userAiSettingsRelations = relations(userAiSettings, ({ one }) => ({
@@ -370,6 +419,10 @@ export const transactionsRelations = relations(transactions, ({ one }) => ({
     fields: [transactions.categoryId],
     references: [categories.id],
   }),
+  subscription: one(subscriptions, {
+    fields: [transactions.subscriptionId],
+    references: [subscriptions.id],
+  }),
 }));
 
 export const budgetsRelations = relations(budgets, ({ one }) => ({
@@ -409,6 +462,7 @@ export const userRelations = relations(user, ({ many, one }) => ({
     references: [userFinance.userId],
   }),
   paymentMethods: many(paymentMethods),
+  subscriptions: many(subscriptions),
   transactions: many(transactions),
   budgets: many(budgets),
   aiSettings: one(userAiSettings, {

@@ -99,29 +99,27 @@ function StatMiniCard({
 }
 
 export function TransactionStatMiniCards({
-  totalVolume,
-  prevTotalVolume,
   income,
   prevIncome,
   expense,
   prevExpense,
 }: {
-  totalVolume: number;
-  prevTotalVolume: number;
   income: number;
   prevIncome: number;
   expense: number;
   prevExpense: number;
 }) {
-  const dVol = totalVolume - prevTotalVolume;
+  const balance = income - expense;
+  const prevBalance = prevIncome - prevExpense;
+  const dBal = balance - prevBalance;
   const dInc = income - prevIncome;
   const dExp = expense - prevExpense;
 
-  const volPct = pctChange(totalVolume, prevTotalVolume);
+  const balPct = pctChange(balance, prevBalance);
   const incPct = pctChange(income, prevIncome);
   const expPct = pctChange(expense, prevExpense);
 
-  const volPos = dVol >= 0;
+  const balPos = dBal >= 0;
   const incPos = dInc >= 0;
   const expPos = dExp <= 0;
 
@@ -133,11 +131,11 @@ export function TransactionStatMiniCards({
       )}
     >
       <StatMiniCard
-        title="Total Transaction"
-        amount={totalVolume}
-        changePct={volPct}
-        changeLabel={`${volPos ? "+" : "−"}${formatInr(Math.abs(dVol))}`}
-        positive={volPos}
+        title="Total balance"
+        amount={balance}
+        changePct={balPct}
+        changeLabel={`${balPos ? "+" : "−"}${formatInr(Math.abs(dBal))}`}
+        positive={balPos}
       />
       <StatMiniCard
         title="Incomes"

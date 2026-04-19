@@ -60,10 +60,11 @@ function formatRowTime(d: Date): string {
 }
 
 const TABLE_MIN_W = "min-w-[720px]";
-const COL_CATEGORY = "w-[200px] shrink-0";
-const COL_DATE = "min-w-0 flex-1";
+/** Category grows; Date/Time/Amount/Method use fixed widths so extra space stays in Category. */
+const COL_CATEGORY = "flex-1 basis-0 min-w-[220px]";
+const COL_DATE = "w-[148px] shrink-0";
 const COL_TIME = "w-24 shrink-0";
-const COL_AMOUNT = "min-w-0 flex-1";
+const COL_AMOUNT = "w-[128px] shrink-0 pr-3 text-right tabular-nums";
 const COL_METHOD = "w-[120px] shrink-0";
 
 const inputBarClass =
@@ -245,7 +246,7 @@ export function OverviewRecentTransactions({ rows }: { rows: Tx[] }) {
             </span>
             <button
               type="button"
-              className={`flex ${COL_AMOUNT} items-center gap-0.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--cazura-border)] focus-visible:ring-offset-2`}
+              className={`flex ${COL_AMOUNT} items-center justify-end gap-0.5 rounded-sm text-right outline-none focus-visible:ring-2 focus-visible:ring-[var(--cazura-border)] focus-visible:ring-offset-2`}
               onClick={() => {
                 if (sortBy === "amount") {
                   setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -308,15 +309,17 @@ export function OverviewRecentTransactions({ rows }: { rows: Tx[] }) {
                   borderColor: "var(--cazura-row-divider)",
                 }}
               >
-                <div className={`${COL_CATEGORY} min-w-0`}>
-                  <TransactionCategoryLabel
-                    name={tx.categoryName}
-                    icon={tx.categoryIcon}
-                    color={tx.categoryColor}
-                    transactionName={tx.transactionName}
-                    note={tx.note}
-                    variant="cazura"
-                  />
+                <div className={COL_CATEGORY}>
+                  <div className="min-w-0">
+                    <TransactionCategoryLabel
+                      name={tx.categoryName}
+                      icon={tx.categoryIcon}
+                      color={tx.categoryColor}
+                      transactionName={tx.transactionName}
+                      note={tx.note}
+                      variant="cazura"
+                    />
+                  </div>
                 </div>
                 <span
                   className={`${COL_DATE} text-xs font-medium`}

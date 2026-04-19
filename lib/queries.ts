@@ -5,6 +5,7 @@ import {
   goalContributions,
   goals,
   paymentMethods,
+  subscriptions,
   transactions,
   userFinance,
 } from "@/db/schema";
@@ -67,6 +68,32 @@ export async function listPaymentMethods(userId: string) {
       .orderBy(asc(paymentMethods.sortOrder), asc(paymentMethods.name));
   }
   return rows;
+}
+
+export async function listSubscriptionsWithCategory(userId: string) {
+  return db
+    .select({
+      id: subscriptions.id,
+      serviceName: subscriptions.serviceName,
+      amount: subscriptions.amount,
+      paymentMethod: subscriptions.paymentMethod,
+      note: subscriptions.note,
+      scheduleType: subscriptions.scheduleType,
+      billingDay: subscriptions.billingDay,
+      untilYear: subscriptions.untilYear,
+      untilMonth: subscriptions.untilMonth,
+      createdAt: subscriptions.createdAt,
+      updatedAt: subscriptions.updatedAt,
+      categoryId: subscriptions.categoryId,
+      categoryName: categories.name,
+      categoryIcon: categories.icon,
+      categoryColor: categories.color,
+      categoryType: categories.type,
+    })
+    .from(subscriptions)
+    .innerJoin(categories, eq(subscriptions.categoryId, categories.id))
+    .where(eq(subscriptions.userId, userId))
+    .orderBy(asc(subscriptions.serviceName));
 }
 
 /** Transaction counts per stored `payment_method` string (non-null only). */
@@ -179,16 +206,12 @@ export async function getTransactionAggregates(
     else prevExpense += r.amount;
   }
 
-  const totalVolume = income + expense;
-
   return {
     range,
     income,
     expense,
-    totalVolume,
     prevIncome,
     prevExpense,
-    prevTotalVolume: prevIncome + prevExpense,
   };
 }
 

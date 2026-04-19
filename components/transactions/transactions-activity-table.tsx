@@ -195,14 +195,12 @@ export function TransactionsActivityTable({ rows }: { rows: ActivityRow[] }) {
             borderColor: "var(--cazura-row-divider)",
           }}
         >
-          <span
-            className="w-[200px] shrink-0 text-xs font-medium text-[var(--cazura-label)]"
-          >
+          <span className="min-w-[220px] flex-1 basis-0 text-xs font-medium text-[var(--cazura-label)]">
             Category
           </span>
           <button
             type="button"
-            className="flex min-w-0 flex-1 items-center gap-0.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--cazura-border)] focus-visible:ring-offset-2"
+            className="flex w-[148px] shrink-0 items-center gap-0.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--cazura-border)] focus-visible:ring-offset-2"
             onClick={() => {
               setDateSort((d) => (d === "asc" ? "desc" : "asc"));
               setPage(1);
@@ -225,7 +223,7 @@ export function TransactionsActivityTable({ rows }: { rows: ActivityRow[] }) {
           <span className="w-24 shrink-0 text-xs font-medium text-[var(--cazura-label)]">
             Time
           </span>
-          <span className="min-w-0 flex-1 text-xs font-medium text-[var(--cazura-label)]">
+          <span className="w-[128px] shrink-0 pr-3 text-right text-xs font-medium text-[var(--cazura-label)]">
             Amount
           </span>
           <span className="w-[120px] shrink-0 text-xs font-medium text-[var(--cazura-label)]">
@@ -269,18 +267,20 @@ export function TransactionsActivityTable({ rows }: { rows: ActivityRow[] }) {
                   }
                 }}
               >
-                <div className="w-[200px] shrink-0">
-                  <TransactionCategoryLabel
-                    name={tx.categoryName}
-                    icon={tx.categoryIcon}
-                    color={tx.categoryColor}
-                    transactionName={tx.transactionName}
-                    note={tx.note}
-                    variant="cazura"
-                  />
+                <div className="min-w-[220px] flex-1 basis-0">
+                  <div className="min-w-0">
+                    <TransactionCategoryLabel
+                      name={tx.categoryName}
+                      icon={tx.categoryIcon}
+                      color={tx.categoryColor}
+                      transactionName={tx.transactionName}
+                      note={tx.note}
+                      variant="cazura"
+                    />
+                  </div>
                 </div>
                 <span
-                  className="min-w-0 flex-1 text-xs font-medium"
+                  className="w-[148px] shrink-0 text-xs font-medium"
                   style={{ color: "var(--cazura-muted)" }}
                 >
                   {formatTableDate(tx.occurredAt)}
@@ -292,7 +292,7 @@ export function TransactionsActivityTable({ rows }: { rows: ActivityRow[] }) {
                   {formatTableTime(tx.occurredAt)}
                 </span>
                 <span
-                  className="min-w-0 flex-1 text-xs font-bold"
+                  className="w-[128px] shrink-0 pr-3 text-right text-xs font-bold tabular-nums"
                   style={{
                     color:
                       tx.categoryType === "income"

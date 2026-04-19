@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { resolveCategoryIcon } from "@/lib/category-icon";
 import type { AssistantUiOutput } from "@/lib/ai/output";
 import type { AssistantToolData, AssistantToolDataList } from "@/lib/ai/tool-ui";
@@ -15,8 +16,9 @@ import {
   CircleX,
   Coins,
   ImagePlus,
+  Mic,
   Paperclip,
-  PanelLeft,
+  Plus,
   Sparkles,
   TrendingUp,
 } from "lucide-react";
@@ -43,23 +45,6 @@ const FEATURES = [
       "AI predicts future cash positions and alerts you to potential shortfalls.",
   },
 ] as const;
-
-function SoundWaveIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 16 16"
-      fill="currentColor"
-      aria-hidden
-    >
-      <rect x="1" y="6" width="2" height="4" rx="0.5" />
-      <rect x="4.5" y="4" width="2" height="8" rx="0.5" />
-      <rect x="8" y="2" width="2" height="12" rx="0.5" />
-      <rect x="11.5" y="5" width="2" height="6" rx="0.5" />
-      <rect x="15" y="7" width="2" height="2" rx="0.5" />
-    </svg>
-  );
-}
 
 function AssistantRichContent({ content }: { content: string }) {
   return (
@@ -443,8 +428,7 @@ function ApprovalDetails({
 }
 
 export function AiAssistantCanvas({
-  chatCollapsed,
-  onExpandChat,
+  onNewChat,
   messages,
   input,
   onInputChange,
@@ -455,8 +439,7 @@ export function AiAssistantCanvas({
   onResolveApproval,
   error,
 }: {
-  chatCollapsed: boolean;
-  onExpandChat: () => void;
+  onNewChat: () => void;
   messages: {
     id: string;
     role: "user" | "assistant";
@@ -483,131 +466,117 @@ export function AiAssistantCanvas({
   );
 
   return (
-    <div
-      className="relative flex min-h-0 min-w-0 flex-1 flex-col"
-      style={{
-        backgroundImage: `radial-gradient(circle at center, var(--cazura-border) 1px, transparent 1px)`,
-        backgroundSize: "10px 10px",
-        backgroundColor: "var(--cazura-canvas)",
-      }}
-    >
-      {chatCollapsed ? (
+    <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col bg-transparent">
+      <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-2 pt-4 md:px-6">
+        <span className="text-sm font-medium text-[var(--cazura-text)]">Cazura 4.0</span>
         <button
           type="button"
-          onClick={onExpandChat}
-          className="absolute top-3 left-3 z-10 flex items-center rounded-lg border p-1.5 shadow-sm md:left-4"
-          style={{
-            background: "var(--cazura-panel)",
-            borderColor: "var(--cazura-border)",
-            color: "var(--cazura-text)",
-          }}
-          aria-label="Show chat history"
+          onClick={onNewChat}
+          className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--cazura-border)] bg-[var(--cazura-panel)]/80 px-2.5 py-1.5 text-xs font-medium text-[var(--cazura-text)] backdrop-blur-sm transition-colors hover:bg-[var(--cazura-panel)]"
+          aria-label="New chat"
         >
-          <PanelLeft className="size-4" strokeWidth={1.8} />
+          <Plus className="size-3.5" strokeWidth={2} />
+          New chat
         </button>
-      ) : null}
+      </div>
 
-      <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 pb-6 md:px-6">
-        <div className="mb-6 shrink-0 text-sm font-medium text-[var(--cazura-text)] md:mb-8">
-          Cazura 4.0
-        </div>
-
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <ScrollArea className="min-h-0 flex-1 px-4 md:px-6">
         {!hasMessages ? (
-          <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-2">
+          <div className="flex min-h-full flex-col items-center justify-center px-2 py-8">
             <div className="flex w-full max-w-[782px] flex-col items-center text-center">
-            <div
-              className="relative mb-5 flex size-20 items-center justify-center rounded-full border shadow-[0_0_28px_rgba(59,96,100,0.35)]"
-              style={{
-                borderColor: "#dcece5",
-                background:
-                  "linear-gradient(145deg, #dfefe7 0%, #e8f5ef 45%, #d4eadf 100%)",
-              }}
-            >
-              <Sparkles
-                className="size-9"
-                strokeWidth={1.6}
-                style={{ color: "var(--cazura-teal)" }}
-              />
-            </div>
-
-            <h1
-              className="mb-2 text-2xl font-bold tracking-tight md:text-[28px]"
-              style={{ color: "var(--cazura-text)" }}
-            >
-              Welcome to{" "}
-              <span
-                className="bg-gradient-to-r from-[var(--cazura-teal)] via-[var(--cazura-teal-light)] to-[var(--cazura-teal-soft)] bg-clip-text text-transparent"
-                style={{ WebkitTextFillColor: "transparent" }}
+              <div
+                className="relative mb-5 flex size-20 items-center justify-center rounded-full border shadow-[0_0_28px_rgba(59,96,100,0.35)]"
+                style={{
+                  borderColor: "#dcece5",
+                  background:
+                    "linear-gradient(145deg, #dfefe7 0%, #e8f5ef 45%, #d4eadf 100%)",
+                }}
               >
-                Cazura AI
-              </span>
-            </h1>
-            <p
-              className="mb-10 max-w-lg text-base font-medium md:text-lg"
-              style={{ color: "var(--cazura-muted)" }}
-            >
-              Let&apos;s talk about your finance today
-            </p>
+                <Sparkles
+                  className="size-9"
+                  strokeWidth={1.6}
+                  style={{ color: "var(--cazura-teal)" }}
+                />
+              </div>
 
-            <div className="mb-10 grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {FEATURES.map(({ icon: Icon, title, description }) => (
-                <div
-                  key={title}
-                  className="flex flex-col gap-6 rounded-xl border p-6 text-left"
-                  style={{
-                    background: "var(--cazura-panel)",
-                    borderColor: "var(--cazura-border)",
-                  }}
+              <h1
+                className="mb-2 text-2xl font-bold tracking-tight md:text-[28px]"
+                style={{ color: "var(--cazura-text)" }}
+              >
+                Welcome to{" "}
+                <span
+                  className="bg-gradient-to-r from-[var(--cazura-teal)] via-[var(--cazura-teal-light)] to-[var(--cazura-teal-soft)] bg-clip-text text-transparent"
+                  style={{ WebkitTextFillColor: "transparent" }}
                 >
+                  Cazura AI
+                </span>
+              </h1>
+              <p
+                className="mb-10 max-w-lg text-base font-medium md:text-lg"
+                style={{ color: "var(--cazura-muted)" }}
+              >
+                Let&apos;s talk about your finance today
+              </p>
+
+              <div className="mb-10 grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {FEATURES.map(({ icon: Icon, title, description }) => (
                   <div
-                    className="relative flex size-9 items-center justify-center rounded-lg border"
-                    style={{
-                      borderColor: "#dcece5",
-                      background: "#dfefe7",
-                      boxShadow:
-                        "inset 0 0 4px rgba(255,255,255,0.25), 0 0 16px rgba(59,96,100,0.35)",
-                    }}
+                    key={title}
+                    className="flex flex-col gap-6 rounded-xl border border-[var(--cazura-border)] bg-[var(--cazura-panel)]/85 p-6 text-left shadow-sm backdrop-blur-sm"
                   >
-                    <Icon
-                      className="size-5"
-                      strokeWidth={1.8}
-                      style={{ color: "var(--cazura-teal)" }}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <p
-                      className="text-base font-bold"
-                      style={{ color: "var(--cazura-text)" }}
+                    <div
+                      className="relative flex size-9 items-center justify-center rounded-lg border"
+                      style={{
+                        borderColor: "#dcece5",
+                        background: "#dfefe7",
+                        boxShadow:
+                          "inset 0 0 4px rgba(255,255,255,0.25), 0 0 16px rgba(59,96,100,0.35)",
+                      }}
                     >
-                      {title}
-                    </p>
-                    <p
-                      className="text-xs font-medium leading-snug"
-                      style={{ color: "var(--cazura-muted)" }}
-                    >
-                      {description}
-                    </p>
+                      <Icon
+                        className="size-5"
+                        strokeWidth={1.8}
+                        style={{ color: "var(--cazura-teal)" }}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <p
+                        className="text-base font-bold"
+                        style={{ color: "var(--cazura-text)" }}
+                      >
+                        {title}
+                      </p>
+                      <p
+                        className="text-xs font-medium leading-snug"
+                        style={{ color: "var(--cazura-muted)" }}
+                      >
+                        {description}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
             </div>
           </div>
         ) : (
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto rounded-xl border border-[var(--cazura-border)] bg-[var(--cazura-panel)] p-4">
+          <div className="mx-auto max-w-3xl space-y-4 pb-4">
             {messages.map((m) => (
               <div
                 key={m.id}
-                className={cn("max-w-[90%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap")}
+                className={cn(
+                  "max-w-[90%] rounded-2xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap shadow-sm backdrop-blur-sm",
+                  m.role === "user"
+                    ? "ml-auto border border-[var(--cazura-teal)]/30"
+                    : "border border-[var(--cazura-border)]/60 bg-[var(--cazura-panel)]/75",
+                )}
                 style={
                   m.role === "user"
                     ? {
-                        marginLeft: "auto",
                         background: "var(--cazura-teal)",
                         color: "#fff",
                       }
                     : {
-                        background: "var(--cazura-canvas)",
                         color: "var(--cazura-text)",
                       }
                 }
@@ -652,10 +621,13 @@ export function AiAssistantCanvas({
             ))}
           </div>
         )}
+        </ScrollArea>
+      </div>
 
-        <div className="mx-auto mt-4 w-full max-w-[782px] shrink-0 space-y-3">
+      <div className="pointer-events-none shrink-0 bg-transparent px-4 pb-5 pt-2 md:px-6 md:pb-6">
+        <div className="pointer-events-auto mx-auto w-full max-w-[782px] space-y-3">
           {error ? (
-            <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="rounded-xl border border-red-200/80 bg-red-50/75 px-3 py-2 text-sm text-red-700 shadow-sm backdrop-blur-md">
               {error}
               {needsApiKey ? (
                 <span className="ml-2">
@@ -672,7 +644,7 @@ export function AiAssistantCanvas({
               {approvals.map((a) => (
                 <div
                   key={a.approvalId}
-                  className="rounded-2xl border border-[var(--cazura-border)] bg-[var(--cazura-panel)] p-3 shadow-sm"
+                  className="rounded-2xl border border-[var(--cazura-border)]/50 bg-[var(--cazura-panel)]/45 p-3 shadow-[0_8px_32px_rgba(0,0,0,0.08)] backdrop-blur-xl"
                 >
                   <ApprovalDetails
                     toolName={a.toolName}
@@ -702,15 +674,17 @@ export function AiAssistantCanvas({
           ) : null}
 
           <div
-            className="flex flex-col gap-8 rounded-xl border p-3 shadow-[0px_4px_24px_rgba(0,0,0,0.05)]"
-            style={{
-              background: "var(--cazura-panel)",
-              borderColor: "var(--cazura-border)",
-            }}
+            className="flex flex-col gap-2 rounded-2xl border border-[var(--cazura-border)]/45 bg-[var(--cazura-panel)]/35 p-4 shadow-[0_12px_48px_-8px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.04)] ring-1 ring-white/40 backdrop-blur-xl"
           >
             <textarea
               value={input}
               onChange={(e) => onInputChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  onSend();
+                }
+              }}
               placeholder="Ask any question..."
               rows={2}
               className={cn(
@@ -725,44 +699,33 @@ export function AiAssistantCanvas({
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-medium transition-colors hover:bg-[var(--cazura-canvas)]"
-                  style={{
-                    background: "var(--cazura-panel)",
-                    borderColor: "var(--cazura-border)",
-                    color: "var(--cazura-text)",
-                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--cazura-border)]/50 bg-white/25 px-2.5 py-1.5 text-xs font-medium text-[var(--cazura-text)] backdrop-blur-sm transition-colors hover:bg-white/40"
                 >
-                  <Paperclip className="size-3" strokeWidth={2} />
+                  <Paperclip className="size-4 shrink-0" strokeWidth={2} />
                   Attach
                 </button>
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-medium transition-colors hover:bg-[var(--cazura-canvas)]"
-                  style={{
-                    background: "var(--cazura-panel)",
-                    borderColor: "var(--cazura-border)",
-                    color: "var(--cazura-text)",
-                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--cazura-border)]/50 bg-white/25 px-2.5 py-1.5 text-xs font-medium text-[var(--cazura-text)] backdrop-blur-sm transition-colors hover:bg-white/40"
                 >
-                  <ImagePlus className="size-3" strokeWidth={2} />
-                  Add Image
+                  <ImagePlus className="size-4 shrink-0" strokeWidth={2} />
+                  Add image
                 </button>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  className="rounded-md p-1 transition-colors hover:bg-[var(--cazura-canvas)]"
-                  style={{ color: "var(--cazura-text)" }}
+                  className="rounded-lg p-2 text-[var(--cazura-text)] transition-colors hover:bg-white/30"
                   aria-label="Voice input"
                 >
-                  <SoundWaveIcon className="size-4" />
+                  <Mic className="size-4" strokeWidth={2} />
                 </button>
                 <Button
                   type="button"
                   size="icon"
                   disabled={sending || input.trim().length === 0}
                   onClick={onSend}
-                  className="size-8 rounded-md border-[#54767a] shadow-[0px_2px_12px_rgba(0,0,0,0.1)]"
+                  className="size-9 rounded-lg border-[#54767a] shadow-[0px_2px_12px_rgba(0,0,0,0.1)]"
                   style={{
                     background: "var(--cazura-teal)",
                     boxShadow:

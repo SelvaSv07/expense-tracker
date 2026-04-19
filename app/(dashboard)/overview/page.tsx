@@ -32,8 +32,7 @@ export default async function OverviewPage({
   if (!session?.user) redirect("/sign-in");
 
   const sp = await searchParams;
-  const { preset, custom, monthRef, monthKey } =
-    parseTimeFromSearchParams(sp);
+  const { preset, custom, monthRef } = parseTimeFromSearchParams(sp);
   const { cfYear, cfGranularity } = parseCashFlowChartParams(sp);
   const now = new Date();
   const range = getRangeFromPreset(preset, now, custom, monthRef);
@@ -78,12 +77,7 @@ export default async function OverviewPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <OverviewPageHeader
-        preset={preset}
-        basePath="/overview"
-        monthKey={monthKey}
-        custom={custom}
-      />
+      <OverviewPageHeader />
 
       <OverviewBalanceBanner balance={balance} todaySpend={todaySpend} />
 

@@ -3,9 +3,6 @@
 import { cn } from "@/lib/utils";
 import {
   ArrowLeftRight,
-  ChevronRight,
-  Crown,
-  HelpCircle,
   LayoutDashboard,
   LogOut,
   Map,
@@ -36,7 +33,6 @@ const mainMenu: NavDef[] = [
 ];
 
 const toolsMenu: NavDef[] = [
-  { href: "/settings", label: "Help", icon: HelpCircle },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -85,6 +81,7 @@ export function AppShell({
   user: { name: string; email: string; image?: string | null };
 }) {
   const pathname = usePathname();
+  const isAiAssistantPage = pathname === "/ai";
 
   function isMainActive(href: string, label: string) {
     if (label === "Overview") return pathname === "/overview";
@@ -194,56 +191,35 @@ export function AppShell({
           </div>
         </div>
 
-        <div
-          className="mb-2 rounded-xl border border-[var(--cazura-border)] bg-[var(--cazura-panel)] p-3"
-        >
-          <div className="mb-2 flex items-center gap-1.5">
-            <div
-              className="flex items-center rounded-md border border-[#48787e] p-0.5"
-              style={{
-                background: "linear-gradient(135deg, #3b6064 20%, #588d73 80%)",
-              }}
-            >
-              <Crown className="size-[11px] text-white" strokeWidth={2} />
-            </div>
-            <span
-              className="bg-gradient-to-r from-[var(--cazura-teal)] via-[var(--cazura-teal-light)] to-[var(--cazura-teal-soft)] bg-clip-text text-[11px] font-bold text-transparent"
-              style={{ WebkitTextFillColor: "transparent" }}
-            >
-              CazuraPro
-            </span>
-          </div>
-          <p className="mb-0.5 text-[11px]" style={{ color: "var(--cazura-text)" }}>
-            Your Pro plan will end in <strong>10 days</strong>
-          </p>
-          <p className="text-[var(--cazura-muted)] mb-2 text-[10px]">
-            Renew to keep access to all features
-          </p>
-          <div
-            className="relative mb-2 h-1 overflow-hidden rounded-lg border border-[var(--cazura-border)] bg-[var(--cazura-canvas)]"
-          >
-            <div
-              className="absolute top-0 left-0 h-full w-[72%] rounded-lg border border-[#809b9e]"
-              style={{ background: "var(--cazura-teal)" }}
-            />
-          </div>
-          <Link
-            href="/settings"
-            className="flex cursor-pointer items-center gap-0.5 text-[10px] font-bold text-[var(--cazura-teal)]"
-          >
-            See plan
-            <ChevronRight className="size-[11px]" strokeWidth={2.5} />
-          </Link>
-        </div>
-
         <LogoutButton />
       </aside>
 
       <div
-        className="border-[var(--cazura-panel-border)] ml-[236px] flex h-[calc(100svh-2rem)] min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-[var(--cazura-panel)]"
+        className={cn(
+          "border-[var(--cazura-panel-border)] ml-[236px] flex h-[calc(100svh-2rem)] min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border",
+          isAiAssistantPage
+            ? "bg-[var(--cazura-canvas)]"
+            : "bg-[var(--cazura-panel)]",
+        )}
+        style={
+          isAiAssistantPage
+            ? {
+                backgroundImage:
+                  "radial-gradient(circle at center, var(--cazura-border) 1px, transparent 1px)",
+                backgroundSize: "10px 10px",
+              }
+            : undefined
+        }
       >
         <AppHeader user={user} />
-        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pt-4 pb-6 lg:px-4">
+        <main
+          className={cn(
+            "min-h-0 flex-1 overflow-x-hidden",
+            isAiAssistantPage
+              ? "flex flex-col overflow-hidden"
+              : "overflow-y-auto px-4 pt-4 pb-6 lg:px-4",
+          )}
+        >
           {children}
         </main>
       </div>

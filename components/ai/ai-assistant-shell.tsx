@@ -1,16 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { AiAssistantCanvas } from "./ai-assistant-canvas";
-import { AiChatSidebar } from "./ai-chat-sidebar";
+import { Button } from "@/components/ui/button";
 import {
-  assistantUiOutputSchema,
-  type AssistantUiOutput,
-} from "@/lib/ai/output";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { AiAssistantCanvas } from "./ai-assistant-canvas";
+import { assistantUiOutputSchema, type AssistantUiOutput } from "@/lib/ai/output";
 import {
   assistantToolDataSchema,
   type AssistantToolDataList,
 } from "@/lib/ai/tool-ui";
+import {
+  clearAiChatSession,
+  loadAiChatSession,
+  saveAiChatSession,
+  type PersistedChatMessage,
+} from "@/lib/ai/client-chat-session";
+import { cn } from "@/lib/utils";
+import { useEffect, useLayoutEffect, useState } from "react";
 
 type ChatMessage = {
   id: string;
@@ -38,34 +49,8 @@ function randomId() {
   return crypto.randomUUID();
 }
 
-function parseAssistantMetadata(
-  raw: string | null,
-): { payload: AssistantUiOutput | null; toolDataList: AssistantToolDataList } {
-  if (!raw) return { payload: null, toolDataList: [] };
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    const nextPayload = assistantUiOutputSchema.safeParse(
-      (parsed as { uiPayload?: unknown }).uiPayload ?? parsed,
-    );
-    const rawToolList =
-      (parsed as { toolDataList?: unknown }).toolDataList ??
-      (parsed as { toolData?: unknown }).toolData;
-    const normalizedToolList = Array.isArray(rawToolList) ? rawToolList : [rawToolList];
-    const nextToolDataList = normalizedToolList
-      .map((entry) => assistantToolDataSchema.safeParse(entry))
-      .filter((entry) => entry.success)
-      .map((entry) => entry.data);
-    return {
-      payload: nextPayload.success ? nextPayload.data : null,
-      toolDataList: nextToolDataList,
-    };
-  } catch {
-    return { payload: null, toolDataList: [] };
-  }
-}
-
 export function AiAssistantShell() {
-  const [chatCollapsed, setChatCollapsed] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
   const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -73,6 +58,17 @@ export function AiAssistantShell() {
   const [error, setError] = useState<string | null>(null);
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [categoriesById, setCategoriesById] = useState<Record<string, AiCategory>>({});
+  const [newChatDialogOpen, setNewChatDialogOpen] = useState(false);
+
+  useLayoutEffect(() => {
+    const loaded = loadAiChatSession();
+    if (loaded) {
+      setSessionId(loaded.sessionId);
+      setMessages(loaded.messages as ChatMessage[]);
+      setInput(loaded.input);
+    }
+    setSessionReady(true);
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -86,12 +82,31 @@ export function AiAssistantShell() {
     })();
   }, []);
 
-  function startNewChat() {
+  useEffect(() => {
+    if (!sessionReady) return;
+    saveAiChatSession({
+      sessionId,
+      messages: messages as unknown as PersistedChatMessage[],
+      input,
+    });
+  }, [sessionReady, sessionId, messages, input]);
+
+  function requestNewChat() {
+    if (messages.length === 0) {
+      confirmNewChat();
+      return;
+    }
+    setNewChatDialogOpen(true);
+  }
+
+  function confirmNewChat() {
+    clearAiChatSession();
     setSessionId(crypto.randomUUID());
     setMessages([]);
     setApprovals([]);
     setError(null);
     setInput("");
+    setNewChatDialogOpen(false);
   }
 
   async function sendMessage() {
@@ -271,18 +286,9 @@ export function AiAssistantShell() {
   }
 
   return (
-    <div
-      className="-mx-4 -mt-4 flex min-h-[calc(100svh-7.5rem)] flex-col overflow-hidden md:flex-row"
-      style={{ background: "var(--cazura-panel)" }}
-    >
-      <AiChatSidebar
-        collapsed={chatCollapsed}
-        onToggleCollapse={() => setChatCollapsed((c) => !c)}
-        onNewChat={startNewChat}
-      />
+    <div className="flex h-full min-h-0 flex-1 flex-col">
       <AiAssistantCanvas
-        chatCollapsed={chatCollapsed}
-        onExpandChat={() => setChatCollapsed(false)}
+        onNewChat={requestNewChat}
         messages={messages}
         input={input}
         onInputChange={setInput}
@@ -293,6 +299,42 @@ export function AiAssistantShell() {
         onResolveApproval={resolveApproval}
         error={error}
       />
+
+      <Dialog open={newChatDialogOpen} onOpenChange={setNewChatDialogOpen}>
+        <DialogContent
+          className="border-[var(--cazura-border)] bg-[var(--cazura-panel)] text-[var(--cazura-text)] ring-[var(--cazura-border)] sm:max-w-md"
+          showCloseButton
+        >
+          <DialogHeader>
+            <DialogTitle>Clear chat history?</DialogTitle>
+            <DialogDescription style={{ color: "var(--cazura-muted)" }}>
+              All messages in this conversation will be removed. This cannot be undone. Your chat
+              is only kept in this browser tab until you close it or clear it here.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className={cn(
+                "cursor-pointer",
+                "border-[var(--cazura-border)] bg-[var(--cazura-panel)] text-[var(--cazura-text)] hover:bg-[var(--cazura-canvas)]",
+              )}
+              onClick={() => setNewChatDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="cursor-pointer"
+              onClick={confirmNewChat}
+            >
+              Clear and start new
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

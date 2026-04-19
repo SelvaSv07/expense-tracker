@@ -8,6 +8,35 @@ import {
 } from "@/db/schema";
 import { and, asc, desc, eq } from "drizzle-orm";
 
+/** Walk nested causes (Drizzle → pg) for Postgres error codes. */
+function pgErrorCode(err: unknown): string | undefined {
+  let cur: unknown = err;
+  for (let i = 0; i < 6 && cur; i++) {
+    if (
+      typeof cur === "object" &&
+      cur !== null &&
+      "code" in cur &&
+      typeof (cur as { code: unknown }).code === "string"
+    ) {
+      return (cur as { code: string }).code;
+    }
+    if (typeof cur === "object" && cur !== null && "cause" in cur) {
+      cur = (cur as { cause: unknown }).cause;
+      continue;
+    }
+    break;
+  }
+  return undefined;
+}
+
+function isPgForeignKeyViolation(err: unknown): boolean {
+  return pgErrorCode(err) === "23503";
+}
+
+function isPgUniqueViolation(err: unknown): boolean {
+  return pgErrorCode(err) === "23505";
+}
+
 export type AiMessageRole = (typeof aiMessageRole.enumValues)[number];
 
 export type ChatConversation = {
@@ -162,6 +191,36 @@ export async function appendMessage(input: {
     .where(eq(aiConversations.id, input.conversationId));
 }
 
+/**
+ * Older DBs still have FK from ai_approval_states.conversation_id → ai_conversations.
+ * Client session ids are not inserted into ai_conversations (chats are not persisted).
+ * Migration 0010 drops that FK; until it runs, insert a minimal stub row so approval inserts succeed.
+ */
+async function ensureConversationStubForLegacyApprovalFk(
+  userId: string,
+  conversationId: string,
+) {
+  const [existing] = await db
+    .select({ id: aiConversations.id })
+    .from(aiConversations)
+    .where(eq(aiConversations.id, conversationId))
+    .limit(1);
+  if (existing) return;
+
+  const now = new Date();
+  try {
+    await db.insert(aiConversations).values({
+      id: conversationId,
+      userId,
+      title: "AI session",
+      createdAt: now,
+      updatedAt: now,
+    });
+  } catch (e) {
+    if (!isPgUniqueViolation(e)) throw e;
+  }
+}
+
 export async function createApprovalState(input: {
   userId: string;
   conversationId: string;
@@ -171,18 +230,26 @@ export async function createApprovalState(input: {
   toolCallId?: string | null;
 }) {
   const id = crypto.randomUUID();
-  await db.insert(aiApprovalStates).values({
+  const values = {
     id,
     userId: input.userId,
     conversationId: input.conversationId,
     serializedRunState: input.serializedRunState,
-    status: "pending",
+    status: "pending" as const,
     toolName: input.toolName ?? null,
     toolArguments: input.toolArguments ?? null,
     toolCallId: input.toolCallId ?? null,
     createdAt: new Date(),
     updatedAt: new Date(),
-  });
+  };
+
+  try {
+    await db.insert(aiApprovalStates).values(values);
+  } catch (e) {
+    if (!isPgForeignKeyViolation(e)) throw e;
+    await ensureConversationStubForLegacyApprovalFk(input.userId, input.conversationId);
+    await db.insert(aiApprovalStates).values(values);
+  }
   return id;
 }
 

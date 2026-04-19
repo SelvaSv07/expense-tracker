@@ -3,22 +3,59 @@ import { TransactionStatMiniCards } from "@/components/transactions/transaction-
 import { TransactionsActivityTable } from "@/components/transactions/transactions-activity-table";
 import { TransactionsPageHeader } from "@/components/transactions/transactions-page-header";
 import { TransactionsSubscriptionsCard } from "@/components/transactions/transactions-subscriptions-card";
+import { materializeSubscriptionCharges } from "@/lib/subscription-materialize";
+import { nextDueOnOrAfterUtc } from "@/lib/subscription-schedule";
 import { parseTimeFromSearchParams } from "@/lib/search-params-time";
 import {
   getExpenseBreakdown,
   getTransactionAggregates,
   listCategories,
   listPaymentMethods,
+  listSubscriptionsWithCategory,
   listTransactionsWithCategory,
 } from "@/lib/queries";
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 
-const SUBSCRIPTION_STYLE_CATEGORIES = new Set([
-  "Entertainment",
-  "Shopping",
-  "Utilities",
-]);
+function ordinalDay(d: number): string {
+  if (d >= 11 && d <= 13) return `${d}th`;
+  switch (d % 10) {
+    case 1:
+      return `${d}st`;
+    case 2:
+      return `${d}nd`;
+    case 3:
+      return `${d}rd`;
+    default:
+      return `${d}th`;
+  }
+}
+
+function subscriptionScheduleSummary(sub: {
+  scheduleType: string;
+  billingDay: number;
+  untilYear: number | null;
+  untilMonth: number | null;
+}): string {
+  const dayPart = `Monthly on the ${ordinalDay(sub.billingDay)}`;
+  if (sub.scheduleType !== "until") return `${dayPart} · Ongoing`;
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  const mo = months[(sub.untilMonth ?? 1) - 1];
+  return `${dayPart} · Until ${mo} ${sub.untilYear ?? ""}`;
+}
 
 export default async function TransactionsPage({
   searchParams,
@@ -33,12 +70,15 @@ export default async function TransactionsPage({
     parseTimeFromSearchParams(sp);
   const userId = session.user.id;
 
-  const [agg, txs, breakdown, cats, payMethods] = await Promise.all([
+  await materializeSubscriptionCharges(userId);
+
+  const [agg, txs, breakdown, cats, payMethods, subs] = await Promise.all([
     getTransactionAggregates(userId, preset, custom, monthRef),
     listTransactionsWithCategory(userId, preset, custom, monthRef),
     getExpenseBreakdown(userId, preset, custom, monthRef),
     listCategories(userId),
     listPaymentMethods(userId),
+    listSubscriptionsWithCategory(userId),
   ]);
 
   const categoryOptions = cats.map((c) => ({
@@ -75,28 +115,40 @@ export default async function TransactionsPage({
     categoryColor: tx.categoryColor,
   }));
 
-  const subscriptionItems = txs
-    .filter(
-      (t) =>
-        t.categoryType === "expense" &&
-        SUBSCRIPTION_STYLE_CATEGORIES.has(t.categoryName),
-    )
-    .slice(0, 7)
-    .map((t) => ({
-      id: t.id,
-      label: t.categoryName,
-      timeLabel: t.occurredAt.toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      }),
-      amount: t.amount,
-      icon: t.categoryIcon,
-      color: categoryColors[t.categoryName] ?? t.categoryColor,
-    }));
+  const subscriptionRows = subs.map((s) => {
+    const next = nextDueOnOrAfterUtc(
+      new Date(),
+      s.billingDay,
+      s.createdAt,
+      s.scheduleType,
+      s.untilYear,
+      s.untilMonth,
+    );
+    const nextDueLabel = next
+      ? new Intl.DateTimeFormat("en-IN", {
+          dateStyle: "medium",
+          timeZone: "UTC",
+        }).format(next)
+      : "Ended";
+
+    return {
+      id: s.id,
+      serviceName: s.serviceName,
+      amount: s.amount,
+      scheduleSummary: subscriptionScheduleSummary(s),
+      nextDueLabel,
+      categoryName: s.categoryName,
+      categoryIcon: s.categoryIcon,
+      categoryColor: s.categoryColor,
+      categoryId: s.categoryId,
+      paymentMethod: s.paymentMethod,
+      note: s.note,
+      scheduleType: s.scheduleType as "recurring" | "until",
+      billingDay: s.billingDay,
+      untilYear: s.untilYear,
+      untilMonth: s.untilMonth,
+    };
+  });
 
   return (
     <div className="flex flex-col gap-4 pb-2">
@@ -112,8 +164,6 @@ export default async function TransactionsPage({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-4">
         <div className="flex min-w-0 flex-1 flex-col gap-4">
           <TransactionStatMiniCards
-            totalVolume={agg.totalVolume}
-            prevTotalVolume={agg.prevTotalVolume}
             income={agg.income}
             prevIncome={agg.prevIncome}
             expense={agg.expense}
@@ -131,7 +181,7 @@ export default async function TransactionsPage({
           <TransactionsSubscriptionsCard
             categories={categoryOptions}
             paymentMethods={paymentMethodOptions}
-            items={subscriptionItems}
+            subscriptions={subscriptionRows}
           />
         </div>
       </div>

@@ -3,7 +3,6 @@ import { cn } from "@/lib/utils";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
-  MoreHorizontal,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
@@ -63,11 +62,6 @@ export function OverviewIncomeExpenseCards({
           >
             Incomes
           </span>
-          <MoreHorizontal
-            className="size-[15px] cursor-pointer"
-            strokeWidth={2}
-            color="var(--cazura-label)"
-          />
         </div>
         <div className="flex items-end justify-between gap-2">
           <div className="flex min-w-0 flex-col gap-1.5">
@@ -141,11 +135,6 @@ export function OverviewIncomeExpenseCards({
           >
             Expenses
           </span>
-          <MoreHorizontal
-            className="size-[15px] cursor-pointer"
-            strokeWidth={2}
-            color="var(--cazura-label)"
-          />
         </div>
         <div className="flex items-end justify-between gap-2">
           <div className="flex min-w-0 flex-col gap-1.5">
