@@ -1,5 +1,7 @@
 "use client";
 
+import type { ActivityRow } from "@/components/transactions/activity-row";
+import { useOptimisticTransactionsOptional } from "@/components/transactions/optimistic-transactions-context";
 import { TransactionCategoryLabel } from "@/components/transactions/transaction-category-label";
 import { TransactionDetailDialog } from "@/components/transactions/transaction-detail-dialog";
 import { TransactionRowActions } from "@/components/transactions/transaction-row-actions";
@@ -23,18 +25,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
-export type ActivityRow = {
-  id: string;
-  amount: number;
-  occurredAt: string;
-  transactionName: string | null;
-  note: string | null;
-  paymentMethod: string | null;
-  categoryName: string;
-  categoryType: "income" | "expense";
-  categoryIcon: string | null;
-  categoryColor: string;
-};
+export type { ActivityRow };
 
 const PAGE_SIZES = [10, 20, 50] as const;
 
@@ -54,7 +45,14 @@ function formatTableTime(iso: string) {
   });
 }
 
-export function TransactionsActivityTable({ rows }: { rows: ActivityRow[] }) {
+export function TransactionsActivityTable({
+  rows: rowsProp,
+}: {
+  /** When omitted and wrapped in `OptimisticTransactionsProvider`, rows come from context. */
+  rows?: ActivityRow[];
+}) {
+  const opt = useOptimisticTransactionsOptional();
+  const rows = opt?.displayRows ?? rowsProp ?? [];
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<"all" | "income" | "expense">("all");
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(20);
@@ -254,13 +252,18 @@ export function TransactionsActivityTable({ rows }: { rows: ActivityRow[] }) {
                 className={cn(
                   "flex min-w-[720px] cursor-pointer items-center gap-3 px-3 py-3 outline-none transition-colors hover:bg-[var(--cazura-canvas)] focus-visible:bg-[var(--cazura-canvas)] focus-visible:ring-2 focus-visible:ring-[var(--cazura-border)] focus-visible:ring-offset-2",
                   i < pageRows.length - 1 && "border-b",
+                  tx.optimistic && "opacity-[0.72]",
                 )}
                 style={{
                   background: "var(--cazura-panel)",
                   borderColor: "var(--cazura-row-divider)",
                 }}
-                onClick={() => setDetailRow(tx)}
+                onClick={() => {
+                  if (tx.optimistic) return;
+                  setDetailRow(tx);
+                }}
                 onKeyDown={(e) => {
+                  if (tx.optimistic) return;
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     setDetailRow(tx);
@@ -314,7 +317,20 @@ export function TransactionsActivityTable({ rows }: { rows: ActivityRow[] }) {
                   onClick={(e) => e.stopPropagation()}
                   onKeyDown={(e) => e.stopPropagation()}
                 >
-                  <TransactionRowActions id={tx.id} variant="cazura" />
+                  {tx.optimistic ? (
+                    <span
+                      className="text-[10px] font-medium"
+                      style={{ color: "var(--cazura-muted)" }}
+                    >
+                      Saving…
+                    </span>
+                  ) : (
+                    <TransactionRowActions
+                      id={tx.id}
+                      row={tx}
+                      variant="cazura"
+                    />
+                  )}
                 </div>
               </div>
             ))

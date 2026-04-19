@@ -1,10 +1,22 @@
+import { redisStorage } from "@better-auth/redis-storage";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { getRedis } from "@/lib/redis";
+
+const redis = getRedis();
 
 export const auth = betterAuth({
+  ...(redis
+    ? {
+        secondaryStorage: redisStorage({
+          client: redis,
+          keyPrefix: "better-auth:",
+        }),
+      }
+    : {}),
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {

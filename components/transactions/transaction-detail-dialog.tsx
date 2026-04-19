@@ -1,6 +1,6 @@
 "use client";
 
-import type { ActivityRow } from "@/components/transactions/transactions-activity-table";
+import type { ActivityRow } from "@/components/transactions/activity-row";
 import type { ReactNode } from "react";
 import { TransactionCategoryLabel } from "@/components/transactions/transaction-category-label";
 import {

@@ -2,6 +2,7 @@
 
 import { db } from "@/db";
 import { budgets, categories } from "@/db/schema";
+import { bumpUserFinanceCache } from "@/lib/cache";
 import { BUDGET_RECURRING_ANCHOR } from "@/lib/budget-recurring";
 import {
   getBudgetBreakdownForMonth,
@@ -189,6 +190,7 @@ export async function upsertBudget(input: z.infer<typeof upsertSchema>) {
     }
   }
 
+  await bumpUserFinanceCache(session.user.id);
   revalidatePath("/");
   revalidatePath("/budget");
 }
@@ -205,6 +207,7 @@ export async function deleteBudget(budgetId: string) {
 
   if (!row) throw new Error("Not found");
   await db.delete(budgets).where(eq(budgets.id, budgetId));
+  await bumpUserFinanceCache(session.user.id);
   revalidatePath("/");
   revalidatePath("/budget");
 }

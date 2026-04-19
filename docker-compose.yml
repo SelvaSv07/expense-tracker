@@ -16,5 +16,30 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Hard cap for the container (cgroup). Keep Redis maxmemory slightly lower (below).
+    mem_limit: 256m
+    # Use a high host port if 6379/6380 are blocked (Windows reserved ranges).
+    ports:
+      - "36379:6379"
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - "500mb"
+      - --maxmemory-policy
+      - allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
 volumes:
   postgres_data:
+  redis_data:

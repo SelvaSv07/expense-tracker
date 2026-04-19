@@ -9,13 +9,15 @@ import { BudgetSpendingFlow } from "@/components/budget/budget-spending-flow";
 import { BudgetTotalCard } from "@/components/budget/budget-total-card";
 import { segmentsFromBreakdown } from "@/lib/budget-segments";
 import {
+  getBudgetUsageForRange,
+  getTransactionAggregates,
+} from "@/lib/cached-queries";
+import {
   getBudgetBreakdownForMonth,
   getBudgetBreakdownForRange,
   getBudgetPercentLastNMonths,
-  getBudgetUsageForRange,
   getBudgetVsSpentByMonth,
   getBudgetVsSpentForYearRange,
-  getTransactionAggregates,
   listCategories,
 } from "@/lib/queries";
 import {

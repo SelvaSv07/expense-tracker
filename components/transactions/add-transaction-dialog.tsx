@@ -1,6 +1,8 @@
 "use client";
 
 import { createTransaction } from "@/actions/transactions";
+import type { ActivityRow } from "@/components/transactions/activity-row";
+import { useOptimisticTransactionsOptional } from "@/components/transactions/optimistic-transactions-context";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,11 +34,13 @@ import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, TrendingDown, TrendingUp } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   cloneElement,
   isValidElement,
   useEffect,
   useMemo,
+  startTransition,
   useState,
   type ReactElement,
   type ReactNode,
@@ -108,6 +112,7 @@ export function AddTransactionDialog({
   trigger?: ReactNode;
 }) {
   const router = useRouter();
+  const optimistic = useOptimisticTransactionsOptional();
   const [open, setOpen] = useState(false);
   const defaults = useMemo(() => {
     const expense = categories.filter((c) => c.type === "expense");
@@ -168,25 +173,66 @@ export function AddTransactionDialog({
       form.setError("amount", { message: "Enter a positive amount" });
       return;
     }
-    await createTransaction({
-      categoryId: values.categoryId,
+
+    const category = categories.find((c) => c.id === values.categoryId);
+    if (!category) {
+      form.setError("categoryId", { message: "Choose a category" });
+      return;
+    }
+
+    const tempId = `optimistic-${crypto.randomUUID()}`;
+    const occurredAt = new Date(values.occurredAt).toISOString();
+    const optimisticRow: ActivityRow = {
+      id: tempId,
       amount: amt,
-      occurredAt: new Date(values.occurredAt),
-      transactionName: values.transactionName || undefined,
-      note: values.note || undefined,
-      paymentMethod: values.paymentMethod,
-    });
-    setOpen(false);
-    form.reset({
-      kind: defaults.kind,
-      categoryId: "",
-      occurredAt: toDatetimeLocalValue(new Date()),
-      amount: "",
-      transactionName: "",
-      note: "",
-      paymentMethod: defaultPaymentName,
-    });
-    router.refresh();
+      occurredAt,
+      transactionName: values.transactionName?.trim() || null,
+      note: values.note?.trim() || null,
+      paymentMethod: values.paymentMethod.trim() || null,
+      categoryName: category.name,
+      categoryType: category.type as "income" | "expense",
+      categoryIcon: category.icon,
+      categoryColor: category.color,
+      optimistic: true,
+    };
+
+    if (optimistic) {
+      startTransition(() => {
+        optimistic.applyOptimistic({ type: "prepend", row: optimisticRow });
+      });
+    }
+
+    try {
+      await createTransaction({
+        categoryId: values.categoryId,
+        amount: amt,
+        occurredAt: new Date(values.occurredAt),
+        transactionName: values.transactionName || undefined,
+        note: values.note || undefined,
+        paymentMethod: values.paymentMethod,
+      });
+      setOpen(false);
+      form.reset({
+        kind: defaults.kind,
+        categoryId: "",
+        occurredAt: toDatetimeLocalValue(new Date()),
+        amount: "",
+        transactionName: "",
+        note: "",
+        paymentMethod: defaultPaymentName,
+      });
+      router.refresh();
+      toast.success("Transaction added");
+    } catch (e) {
+      const msg =
+        e instanceof Error ? e.message : "Could not save transaction";
+      if (optimistic) {
+        startTransition(() => {
+          optimistic.applyOptimistic({ type: "remove", id: tempId });
+        });
+      }
+      toast.error(msg);
+    }
   }
 
   return (

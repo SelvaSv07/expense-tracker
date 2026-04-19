@@ -2,6 +2,7 @@
 
 import { db } from "@/db";
 import { budgets, categories, transactions } from "@/db/schema";
+import { bumpUserFinanceCache } from "@/lib/cache";
 import { categoryColorSchema } from "@/lib/category-color";
 import { CATEGORY_ICON_OPTIONS } from "@/lib/category-icon";
 import { getSession } from "@/lib/session";
@@ -38,6 +39,7 @@ export async function createCategory(input: z.infer<typeof createSchema>) {
     color: parsed.color,
   });
 
+  await bumpUserFinanceCache(session.user.id);
   revalidatePath("/settings");
   revalidatePath("/settings/categories");
   revalidatePath("/transactions");
@@ -95,6 +97,7 @@ export async function updateCategory(input: z.infer<typeof updateSchema>) {
     })
     .where(eq(categories.id, parsed.categoryId));
 
+  await bumpUserFinanceCache(session.user.id);
   revalidatePath("/settings");
   revalidatePath("/settings/categories");
   revalidatePath("/transactions");
@@ -144,6 +147,7 @@ export async function deleteCategory(categoryId: string) {
 
   await db.delete(categories).where(eq(categories.id, categoryId));
 
+  await bumpUserFinanceCache(session.user.id);
   revalidatePath("/settings");
   revalidatePath("/settings/categories");
   revalidatePath("/transactions");

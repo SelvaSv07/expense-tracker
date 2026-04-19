@@ -2,6 +2,7 @@
 
 import { db } from "@/db";
 import { categories, transactions } from "@/db/schema";
+import { bumpUserFinanceCache } from "@/lib/cache";
 import { listPaymentMethods } from "@/lib/queries";
 import { getSession } from "@/lib/session";
 import { and, eq } from "drizzle-orm";
@@ -59,6 +60,7 @@ export async function createTransaction(input: z.infer<typeof schema>) {
     paymentMethod,
   });
 
+  await bumpUserFinanceCache(session.user.id);
   revalidatePath("/");
   revalidatePath("/transactions");
   revalidatePath("/settings/payment-methods");
@@ -83,5 +85,7 @@ export async function deleteTransaction(transactionId: string) {
   if (!row) throw new Error("Not found");
 
   await db.delete(transactions).where(eq(transactions.id, transactionId));
+  await bumpUserFinanceCache(session.user.id);
   revalidatePath("/");
+  revalidatePath("/transactions");
 }

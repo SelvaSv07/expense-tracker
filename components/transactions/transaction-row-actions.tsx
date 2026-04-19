@@ -1,5 +1,7 @@
 "use client";
 
+import type { ActivityRow } from "@/components/transactions/activity-row";
+import { useOptimisticTransactionsOptional } from "@/components/transactions/optimistic-transactions-context";
 import { deleteTransaction } from "@/actions/transactions";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -18,26 +20,53 @@ import {
 import { cn } from "@/lib/utils";
 import { MoreHorizontal, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { startTransition, useState } from "react";
+import { toast } from "sonner";
 
 export function TransactionRowActions({
   id,
+  row,
   variant = "default",
 }: {
   id: string;
+  /** Used to restore the row if delete fails after an optimistic removal. */
+  row?: ActivityRow;
   variant?: "default" | "cazura";
 }) {
   const router = useRouter();
+  const opt = useOptimisticTransactionsOptional();
   const cazura = variant === "cazura";
-  const [pending, startTransition] = useTransition();
+  const [deletePending, setDeletePending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   function runDelete() {
-    startTransition(async () => {
-      await deleteTransaction(id);
-      router.refresh();
-      setConfirmOpen(false);
+    startTransition(() => {
+      if (opt && row) {
+        opt.applyOptimistic({ type: "remove", id });
+      }
     });
+    setDeletePending(true);
+    void (async () => {
+      try {
+        await deleteTransaction(id);
+        router.refresh();
+        setConfirmOpen(false);
+        toast.success("Transaction deleted");
+      } catch (e) {
+        const msg =
+          e instanceof Error ? e.message : "Could not delete transaction";
+        startTransition(() => {
+          if (opt && row) {
+            opt.applyOptimistic({ type: "restore", row });
+          } else {
+            router.refresh();
+          }
+        });
+        toast.error(msg);
+      } finally {
+        setDeletePending(false);
+      }
+    })();
   }
 
   const confirmDialog = (
@@ -68,7 +97,7 @@ export function TransactionRowActions({
                 "border-[var(--cazura-border)] bg-[var(--cazura-panel)] text-[var(--cazura-text)] hover:bg-[var(--cazura-canvas)]",
             )}
             onClick={() => setConfirmOpen(false)}
-            disabled={pending}
+            disabled={deletePending}
           >
             Cancel
           </Button>
@@ -77,7 +106,7 @@ export function TransactionRowActions({
             variant="destructive"
             className="cursor-pointer gap-1.5"
             onClick={runDelete}
-            disabled={pending}
+            disabled={deletePending}
           >
             <Trash2 className="size-4" />
             Delete
@@ -91,7 +120,7 @@ export function TransactionRowActions({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger
-          disabled={pending}
+          disabled={deletePending}
           className={cn(
             buttonVariants({ variant: "ghost", size: "icon" }),
             cazura

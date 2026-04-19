@@ -13,9 +13,9 @@ import {
   getCashFlowSeries,
   getTodaySpend,
   getTransactionAggregates,
-  listGoals,
   listTransactionsWithCategory,
-} from "@/lib/queries";
+} from "@/lib/cached-queries";
+import { listGoals } from "@/lib/queries";
 import {
   getRangeFromPreset,
   getWeeklyChartMonthContext,

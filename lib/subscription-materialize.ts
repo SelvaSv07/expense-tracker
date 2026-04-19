@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { subscriptions, transactions, userFinance } from "@/db/schema";
+import { bumpUserFinanceCache } from "@/lib/cache";
 import {
   endOfMonthUtc,
   firstDueOnOrAfterUtc,
@@ -118,6 +119,10 @@ export async function materializeSubscriptionCharges(
     .update(userFinance)
     .set({ lastSubscriptionMaterializeOn: today })
     .where(eq(userFinance.userId, userId));
+
+  if (created > 0) {
+    await bumpUserFinanceCache(userId);
+  }
 
   return { created, skippedThrottle };
 }

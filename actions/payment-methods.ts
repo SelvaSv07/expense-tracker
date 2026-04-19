@@ -2,6 +2,7 @@
 
 import { db } from "@/db";
 import { paymentMethods, transactions } from "@/db/schema";
+import { bumpUserFinanceCache } from "@/lib/cache";
 import { listPaymentMethods } from "@/lib/queries";
 import { getSession } from "@/lib/session";
 import { and, count, eq, max } from "drizzle-orm";
@@ -45,6 +46,7 @@ export async function createPaymentMethod(input: z.infer<typeof nameSchema>) {
     sortOrder: nextOrder,
   });
 
+  await bumpUserFinanceCache(session.user.id);
   revalidatePaymentMethodPaths();
 }
 
@@ -105,6 +107,7 @@ export async function updatePaymentMethod(
       );
   });
 
+  await bumpUserFinanceCache(session.user.id);
   revalidatePaymentMethodPaths();
 }
 
@@ -143,5 +146,6 @@ export async function deletePaymentMethod(paymentMethodId: string) {
 
   await db.delete(paymentMethods).where(eq(paymentMethods.id, paymentMethodId));
 
+  await bumpUserFinanceCache(session.user.id);
   revalidatePaymentMethodPaths();
 }

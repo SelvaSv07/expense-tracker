@@ -2,6 +2,7 @@
 
 import { db } from "@/db";
 import { categories, subscriptions } from "@/db/schema";
+import { bumpUserFinanceCache } from "@/lib/cache";
 import { materializeSubscriptionCharges } from "@/lib/subscription-materialize";
 import {
   firstDueOnOrAfterUtc,
@@ -126,6 +127,7 @@ export async function createSubscription(
   });
 
   await materializeSubscriptionCharges(userId, { force: true });
+  await bumpUserFinanceCache(userId);
   revalidatePath("/transactions");
   revalidatePath("/");
   return id;
@@ -180,6 +182,7 @@ export async function updateSubscription(
     .where(eq(subscriptions.id, subscriptionId));
 
   await materializeSubscriptionCharges(userId, { force: true });
+  await bumpUserFinanceCache(userId);
   revalidatePath("/transactions");
   revalidatePath("/");
 }
@@ -200,6 +203,7 @@ export async function deleteSubscription(subscriptionId: string) {
 
   await db.delete(subscriptions).where(eq(subscriptions.id, subscriptionId));
 
+  await bumpUserFinanceCache(userId);
   revalidatePath("/transactions");
   revalidatePath("/");
 }
