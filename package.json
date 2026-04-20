@@ -7,7 +7,7 @@
     "dev:turbo": "next dev",
     "build": "next build",
     "start": "next start",
-    "start:prod": "npm run db:migrate && next start",
+    "start:prod": "drizzle-kit push && next start",
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/db-migrate.mjs",
