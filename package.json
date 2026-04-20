@@ -7,13 +7,13 @@
     "dev:turbo": "next dev",
     "build": "next build",
     "start": "next start",
+    "start:prod": "npm run db:migrate && next start",
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:rename-monetary": "node scripts/apply-monetary-rename.mjs",
-    "docker:up": "docker compose up -d"
+    "db:rename-monetary": "node scripts/apply-monetary-rename.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",

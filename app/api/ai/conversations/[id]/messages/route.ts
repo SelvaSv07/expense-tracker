@@ -6,7 +6,9 @@ type Params = {
 };
 
 /** Chats are not persisted; messages are always empty. */
-export async function GET(_: Request, _ctx: Params) {
+export async function GET(request: Request, context: Params) {
+  void request;
+  void context;
   const session = await getSession();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

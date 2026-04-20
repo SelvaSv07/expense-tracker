@@ -32,7 +32,7 @@ import { useRouter } from "next/navigation";
 import {
   cloneElement,
   isValidElement,
-  useEffect,
+  useCallback,
   useState,
   useTransition,
   type ReactElement,
@@ -119,14 +119,13 @@ export function AddBudgetDialog({
   const [amount, setAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
+  const resetFormForOpen = useCallback(() => {
     setBudgetType("month");
     setMonth(monthInputValue(defaultMonth));
     setCategoryId(expenseCategories[0]?.id ?? "");
     setAmount("");
     setError(null);
-  }, [open, defaultMonth, expenseCategories]);
+  }, [defaultMonth, expenseCategories]);
 
   const sortedCategories = [...expenseCategories].sort((a, b) =>
     a.name.localeCompare(b.name),
@@ -168,19 +167,16 @@ export function AddBudgetDialog({
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (next) {
-          setBudgetType("month");
-          setMonth(monthInputValue(defaultMonth));
-          setCategoryId(expenseCategories[0]?.id ?? "");
-          setAmount("");
-          setError(null);
-        }
+        if (next) resetFormForOpen();
       }}
     >
       {trigger ? (
         mergeDialogOpenTrigger(
           trigger,
-          () => setOpen(true),
+          () => {
+            resetFormForOpen();
+            setOpen(true);
+          },
           expenseCategories.length === 0,
         )
       ) : (

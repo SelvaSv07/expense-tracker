@@ -8,10 +8,8 @@ import {
 import type {
   Agent,
   AgentInputItem,
+  AgentOutputType,
   RunToolApprovalItem,
-  RunStreamEvent,
-  StreamedRunResult,
-  RunResult,
 } from "@openai/agents";
 import { createApprovalState } from "@/lib/ai/store";
 import {
@@ -47,6 +45,17 @@ function tryParseAssistantToolData(parsedOutput: unknown): AssistantToolDataList
   const direct = assistantToolDataSchema.safeParse(parsedOutput);
   if (direct.success) return direct.data;
   return null;
+}
+
+function extractMessageOutputTextFromItems(items: unknown[]): string | undefined {
+  for (const item of items) {
+    if (!item || typeof item !== "object") continue;
+    const rec = item as Record<string, unknown>;
+    if (rec.type === "message_output_item" && rec.outputText != null) {
+      return String(rec.outputText);
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -96,9 +105,14 @@ function extractToolCallId(item: RunToolApprovalItem): string | null {
   return null;
 }
 
-export async function runAgentStreaming(input: {
-  agent: Agent<any, any>;
-  messageOrState: string | AgentInputItem[] | RunState<any, Agent<any, any>>;
+/**
+ * Cazura agents use a concrete Zod output type; TypeScript’s variance rules do not treat that as
+ * assignable to `Agent<TContext, AgentOutputType>` without a cast at the call site.
+ */
+export async function runAgentStreaming<TContext>(input: {
+  agent: Agent<TContext, AgentOutputType>;
+  /** `RunState.fromString` yields `RunState<unknown, …>`; that is safe to pass here. */
+  messageOrState: string | AgentInputItem[] | RunState<unknown, Agent<TContext, AgentOutputType>>;
   context: { userId: string };
   apiKey: string;
   userId: string;
@@ -120,7 +134,7 @@ export async function runAgentStreaming(input: {
   } = input;
 
   const runner = createRunner(apiKey);
-  const stream: StreamedRunResult<any, any> = await runner.run(agent, messageOrState, {
+  const stream = await runner.run(agent, messageOrState, {
     stream: true,
     context,
     signal,
@@ -156,10 +170,7 @@ export async function runAgentStreaming(input: {
   let assistantText = outputToDisplayText(assistantPayload);
   if (!assistantText && stream.finalOutput) assistantText = stringifyOutput(stream.finalOutput);
   if (!assistantText) {
-    const maybeMessage = stream.newItems.find((item: any) => item.type === "message_output_item");
-    if (maybeMessage && "outputText" in (maybeMessage as any) && (maybeMessage as any).outputText) {
-      assistantText = String((maybeMessage as any).outputText);
-    }
+    assistantText = extractMessageOutputTextFromItems(stream.newItems) ?? "";
   }
 
   // Handle interruptions (approval requests)
@@ -187,9 +198,9 @@ export async function runAgentStreaming(input: {
 /**
  * Non-streaming run for simpler cases or fallback.
  */
-export async function runAgentOnce(input: {
-  agent: Agent<any, any>;
-  messageOrState: string | AgentInputItem[] | RunState<any, Agent<any, any>>;
+export async function runAgentOnce<TContext>(input: {
+  agent: Agent<TContext, AgentOutputType>;
+  messageOrState: string | AgentInputItem[] | RunState<unknown, Agent<TContext, AgentOutputType>>;
   context: { userId: string };
   apiKey: string;
   userId: string;
@@ -198,7 +209,7 @@ export async function runAgentOnce(input: {
   const { agent, messageOrState, context, apiKey, userId, conversationId } = input;
 
   const runner = createRunner(apiKey);
-  const result: RunResult<any, any> = await runner.run(agent, messageOrState, {
+  const result = await runner.run(agent, messageOrState, {
     stream: false,
     context,
   });
@@ -208,10 +219,7 @@ export async function runAgentOnce(input: {
   let assistantText = outputToDisplayText(assistantPayload);
   if (!assistantText && result.finalOutput) assistantText = stringifyOutput(result.finalOutput);
   if (!assistantText) {
-    const maybeMessage = result.newItems.find((item: any) => item.type === "message_output_item");
-    if (maybeMessage && "outputText" in (maybeMessage as any) && (maybeMessage as any).outputText) {
-      assistantText = String((maybeMessage as any).outputText);
-    }
+    assistantText = extractMessageOutputTextFromItems(result.newItems) ?? "";
   }
 
   const interruptions = result.interruptions ?? [];
@@ -239,7 +247,7 @@ async function mapInterruptionToEvent(input: {
   item: RunToolApprovalItem;
   userId: string;
   conversationId: string;
-  state: RunState<any, Agent<any, any>>;
+  state: { toString(): string };
 }) {
   const { item, userId, conversationId, state } = input;
   const serializedRunState = state.toString();

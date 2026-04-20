@@ -21,7 +21,7 @@ export function firstDueOnOrAfterUtc(anchor: Date, billingDay: number): Date {
   const m = anchor.getUTCMonth();
   const d = anchor.getUTCDate();
   const anchorKey = ymdKey(new Date(Date.UTC(y, m, d, 12, 0, 0, 0)));
-  let due = billingDateInMonthUtc(y, m, billingDay);
+  const due = billingDateInMonthUtc(y, m, billingDay);
   if (ymdKey(due) >= anchorKey) return due;
   const next = addMonths(new Date(Date.UTC(y, m, 15, 12, 0, 0, 0)), 1);
   return billingDateInMonthUtc(

@@ -38,17 +38,6 @@ export function BudgetSpendingBreakdown({
     monthNav?.monthKey ?? "",
   );
 
-  useEffect(() => {
-    setRows(initialRows);
-    setViewMonthLabel(initialViewMonthLabel);
-    if (monthNav) setActiveMonthKey(monthNav.monthKey);
-  }, [
-    initialRows,
-    initialViewMonthLabel,
-    monthNav?.monthKey,
-    monthNav?.radarMonths,
-  ]);
-
   const showMonthNav = Boolean(monthNav);
 
   const replaceMonthInUrl = useCallback(
@@ -256,7 +245,7 @@ export function BudgetSpendingBreakdown({
             No budgets for this month. Use Set New Budget to create one.
           </div>
         ) : (
-          rows.map((row, i) => (
+          rows.map((row) => (
             <div
               key={row.budgetId}
               className="flex flex-col gap-3 border-b px-3 py-3 last:border-b-0 md:flex-row md:flex-wrap md:items-center md:gap-3"

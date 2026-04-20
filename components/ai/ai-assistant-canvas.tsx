@@ -6,7 +6,7 @@ import { resolveCategoryIcon } from "@/lib/category-icon";
 import type { AssistantUiOutput } from "@/lib/ai/output";
 import type { AssistantToolData, AssistantToolDataList } from "@/lib/ai/tool-ui";
 import { cn } from "@/lib/utils";
-import type { ReactNode } from "react";
+import { createElement, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -23,7 +23,6 @@ import {
   TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo } from "react";
 
 const FEATURES = [
   {
@@ -360,7 +359,6 @@ function ApprovalDetails({
   const categoryId =
     parsed && typeof parsed.categoryId === "string" ? parsed.categoryId : null;
   const category = categoryId ? categoriesById[categoryId] : null;
-  const Icon = resolveCategoryIcon(category?.icon);
 
   const niceLabel: Record<string, string> = {
     categoryId: "Category",
@@ -384,7 +382,10 @@ function ApprovalDetails({
                 color: category.color,
               }}
             >
-              <Icon className="size-4" strokeWidth={2} />
+              {createElement(resolveCategoryIcon(category?.icon), {
+                className: "size-4",
+                strokeWidth: 2,
+              })}
             </div>
           ) : null}
           <div>

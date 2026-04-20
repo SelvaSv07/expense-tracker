@@ -185,6 +185,11 @@ export default async function BudgetPage({
         </div>
         <div className="min-w-0 flex-1">
           <BudgetSpendingBreakdown
+            key={
+              preset === "year"
+                ? `year-${radarMonths}`
+                : `${monthKey ?? monthKeyFromRef(viewMonth.year, viewMonth.monthIndex)}-${radarMonths}`
+            }
             rows={table}
             viewMonthLabel={
               preset === "year"

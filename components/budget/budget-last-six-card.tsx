@@ -44,7 +44,10 @@ export function BudgetLastSixCard({
   const [monthCount, setMonthCount] = useState(initialMonthCount);
   const [anchorMonthKey, setAnchorMonthKey] = useState(anchorMonthKeyProp);
   const monthCountRef = useRef(monthCount);
-  monthCountRef.current = monthCount;
+
+  useEffect(() => {
+    monthCountRef.current = monthCount;
+  }, [monthCount]);
 
   useEffect(() => {
     setChartData(initialData);

@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils";
 import {
   ArrowLeftRight,
   LayoutDashboard,
-  LogOut,
   Map,
   PanelLeftClose,
   Settings,

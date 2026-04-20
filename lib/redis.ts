@@ -3,7 +3,6 @@ import Redis from "ioredis";
 declare global {
   // Avoid duplicate connections during Next.js dev HMR. Only store a real client — never cache "no redis".
   // Otherwise the first load (e.g. build without REDIS_URL) locks out Redis until process restart.
-  // eslint-disable-next-line no-var
   var __expenseRedis: Redis | undefined;
 }
 

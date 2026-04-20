@@ -1,4 +1,4 @@
-import { createCazuraAgent } from "@/lib/ai/cazura-agent";
+import { createCazuraAgent, type CazuraAgentContext } from "@/lib/ai/cazura-agent";
 import { DEFAULT_OPENAI_MODEL_ID } from "@/lib/ai/openai-model-options";
 import { decryptApiKey } from "@/lib/ai/crypto";
 import { runAgentStreaming } from "@/lib/ai/runner";
@@ -10,7 +10,7 @@ import {
 } from "@/lib/ai/store";
 import { createSseStream, SSE_HEADERS } from "@/lib/ai/sse";
 import { getSession } from "@/lib/session";
-import { RunState } from "@openai/agents";
+import { RunState, type Agent, type AgentOutputType } from "@openai/agents";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -89,9 +89,12 @@ export async function POST(request: Request) {
   const stream = createSseStream(async (writer) => {
     writer.send("meta", { conversationId: approval.conversationId });
 
-    const result = await runAgentStreaming({
-      agent,
-      messageOrState: runState,
+    const result = await runAgentStreaming<CazuraAgentContext>({
+      agent: agent as Agent<CazuraAgentContext, AgentOutputType>,
+      messageOrState: runState as RunState<
+        unknown,
+        Agent<CazuraAgentContext, AgentOutputType>
+      >,
       context: { userId: session.user.id },
       apiKey,
       userId: session.user.id,

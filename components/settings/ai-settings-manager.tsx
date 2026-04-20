@@ -73,7 +73,6 @@ export function AiSettingsManager() {
         setError(e instanceof Error ? e.message : "Could not load AI settings");
       }
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const canSaveModelOnly = configured && effectiveModel.length > 0;

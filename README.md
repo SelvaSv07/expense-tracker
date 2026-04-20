@@ -13,7 +13,7 @@ If you upgraded from an older schema that used `amount_cents` / `*_cents` column
 ## Getting Started
 
 1. Copy [`.env.example`](.env.example) to `.env.local` and set `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, and `NEXT_PUBLIC_APP_URL`.
-2. Start Postgres: `docker compose up -d`
+2. Run **PostgreSQL** somewhere reachable from your machine (managed service, local install, etc.) and point `DATABASE_URL` at it. Set `REDIS_URL` if you use Redis-backed features locally.
 3. Apply schema: `npm run db:push`
 4. Run the app: `npm run dev`
 
@@ -24,7 +24,6 @@ Open [http://localhost:3000](http://localhost:3000).
 - `npm run dev` — development server
 - `npm run build` — production build
 - `npm run db:push` / `npm run db:generate` / `npm run db:migrate` — Drizzle
-- `npm run docker:up` — start Postgres via Docker Compose
 
 ## Learn More
 

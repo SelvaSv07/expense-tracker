@@ -1,5 +1,6 @@
 import * as Lucide from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { createElement } from "react";
 
 /** Curated icon names stored as kebab-case (matches Lucide file names). */
 export const CATEGORY_ICON_OPTIONS = [
@@ -71,6 +72,5 @@ export function CategoryIcon({
   name: string | null | undefined;
   className?: string;
 }) {
-  const Icon = resolveCategoryIcon(name);
-  return <Icon className={className} />;
+  return createElement(resolveCategoryIcon(name), { className });
 }

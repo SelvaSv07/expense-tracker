@@ -40,7 +40,7 @@ function CustomRangePopoverBody({
     p.delete("m");
     const qs = p.toString();
     return qs ? `${basePath}?${qs}` : basePath;
-  }, [basePath, range?.from, range?.to, searchParams]);
+  }, [basePath, range, searchParams]);
 
   return (
     <>

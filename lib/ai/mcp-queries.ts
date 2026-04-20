@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { categories, transactions } from "@/db/schema";
 import { toMcpToolResultEnvelope } from "@/lib/ai/tool-ui";
 import type { AssistantToolData } from "@/lib/ai/tool-ui";
-import { and, desc, eq, gte, ilike, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 
 export type ListTransactionsInput = {
   fromIso: string | null;
