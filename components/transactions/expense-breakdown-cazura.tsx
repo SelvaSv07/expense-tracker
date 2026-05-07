@@ -175,7 +175,9 @@ function BubbleTooltipPortal({
       typeof ResizeObserver !== "undefined" && tipEl
         ? new ResizeObserver(() => updatePosition())
         : null;
-    resizeObs?.observe(tipEl);
+    if (resizeObs && tipEl) {
+      resizeObs.observe(tipEl);
+    }
 
     return () => {
       cancelAnimationFrame(raf);
