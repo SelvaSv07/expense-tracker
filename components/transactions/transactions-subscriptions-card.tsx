@@ -1,32 +1,64 @@
 "use client";
 
 import { deleteSubscription } from "@/actions/subscriptions";
-import {
-  AddTransactionDialog,
-  type PaymentMethodOption,
-  type TransactionCategoryOption,
+import type {
+  PaymentMethodOption,
+  TransactionCategoryOption,
 } from "@/components/transactions/add-transaction-dialog";
 import {
   SubscriptionFormDialog,
   type SubscriptionEditValues,
 } from "@/components/transactions/subscription-form-dialog";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   CategoryIconShelf,
   categoryIconShelfBorderStyle,
 } from "@/lib/category-color";
 import { formatInr } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { MoreHorizontal, Pencil, Plus, Trash2, Wand2 } from "lucide-react";
-import Link from "next/link";
+import { ArrowUpRight, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+
+const SUBSCRIPTION_CARD_PREVIEW_LIMIT = 3;
+
+function ordinalDaySuffix(day: number): string {
+  if (day >= 11 && day <= 13) return `${day}th`;
+  switch (day % 10) {
+    case 1:
+      return `${day}st`;
+    case 2:
+      return `${day}nd`;
+    case 3:
+      return `${day}rd`;
+    default:
+      return `${day}th`;
+  }
+}
+
+function subscriptionCardCadenceLabel(billingDay: number): string {
+  return `Monthly on the ${ordinalDaySuffix(billingDay)}`;
+}
 
 export type SubscriptionCardRow = {
   id: string;
@@ -46,6 +78,119 @@ export type SubscriptionCardRow = {
   untilMonth: number | null;
 };
 
+function SubscriptionCardRowItem({
+  row,
+  onEdit,
+  onDelete,
+  variant = "card",
+}: {
+  row: SubscriptionCardRow;
+  onEdit: () => void;
+  onDelete: () => void;
+  variant?: "card" | "dialog";
+}) {
+  return (
+    <div
+      className={cn(
+        "flex min-w-0 items-center gap-2",
+        variant === "dialog" && "py-3.5",
+        variant === "card" && "py-3",
+      )}
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <Tooltip>
+          <TooltipTrigger
+            type="button"
+            delay={250}
+            className={cn(
+              "inline-flex cursor-default rounded-full border-0 bg-transparent p-0 outline-none",
+              "focus-visible:ring-2 focus-visible:ring-[var(--cazura-teal)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--cazura-panel)]",
+            )}
+            aria-label={`Category: ${row.categoryName}`}
+          >
+            <CategoryIconShelf
+              icon={row.categoryIcon}
+              color={row.categoryColor}
+              className="size-9 shrink-0 rounded-full border p-1.5"
+              style={categoryIconShelfBorderStyle(row.categoryColor)}
+              iconClassName="size-3.5"
+            />
+          </TooltipTrigger>
+          <TooltipContent side="top" sideOffset={6}>
+            {row.categoryName}
+          </TooltipContent>
+        </Tooltip>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span
+            className="truncate text-sm font-medium leading-snug"
+            style={{ color: "var(--cazura-text)" }}
+          >
+            {row.serviceName}
+          </span>
+          <span className="text-[11px] leading-snug text-[var(--cazura-label)]">
+            {variant === "card" ? (
+              subscriptionCardCadenceLabel(row.billingDay)
+            ) : (
+              <>
+                {row.scheduleSummary}
+                <span className="text-[var(--cazura-muted)]"> · </span>
+                Next: {row.nextDueLabel}
+              </>
+            )}
+          </span>
+        </div>
+      </div>
+      <div
+        className={cn(
+          "flex shrink-0 flex-row items-center",
+          variant === "dialog" ? "gap-2.5" : "gap-0",
+        )}
+      >
+        <span
+          className="text-sm font-semibold tabular-nums tracking-tight whitespace-nowrap"
+          style={{ color: "var(--cazura-text)" }}
+        >
+          {formatInr(row.amount)}
+        </span>
+        {variant === "dialog" ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded border p-0"
+              style={{ borderColor: "var(--cazura-border)" }}
+            >
+              <MoreHorizontal
+                className="size-2.5 text-[var(--cazura-label)]"
+                strokeWidth={2}
+              />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[120px]">
+              <DropdownMenuItem onClick={onEdit}>
+                <Pencil className="size-3.5" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                <Trash2 className="size-3.5" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+const subscriptionAddButtonClassName = cn(
+  buttonVariants({ size: "sm" }),
+  "h-8 shrink-0 gap-1.5 rounded-lg border text-xs font-medium shadow-[0_2px_8px_rgba(0,0,0,0.1)]",
+);
+
+const subscriptionAddButtonStyle = {
+  background: "var(--cazura-teal)",
+  borderColor: "#629298",
+  color: "var(--cazura-panel)",
+} as const;
+
 export function TransactionsSubscriptionsCard({
   categories,
   paymentMethods,
@@ -57,6 +202,12 @@ export function TransactionsSubscriptionsCard({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState<SubscriptionEditValues | null>(null);
+  const [viewAllOpen, setViewAllOpen] = useState(false);
+
+  const previewSubscriptionRows = subscriptionRows.slice(
+    0,
+    SUBSCRIPTION_CARD_PREVIEW_LIMIT,
+  );
 
   function toEditValues(row: SubscriptionCardRow): SubscriptionEditValues {
     return {
@@ -90,176 +241,119 @@ export function TransactionsSubscriptionsCard({
   }
 
   return (
-    <div
-      className="flex flex-col gap-3 rounded-xl border p-3"
-      style={{
-        background: "var(--cazura-panel)",
-        borderColor: "var(--cazura-border)",
-      }}
-    >
+    <TooltipProvider delay={400}>
+      <>
+      <div
+        className="flex flex-col gap-4 rounded-xl border p-3"
+        style={{
+          background: "var(--cazura-panel)",
+          borderColor: "var(--cazura-border)",
+        }}
+      >
       <div className="flex items-center gap-2">
         <span
-          className="flex-1 text-[15px] font-bold"
+          className="min-w-0 flex-1 truncate text-[15px] font-bold"
           style={{ color: "var(--cazura-text)" }}
         >
           Subscriptions
         </span>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <div className="flex gap-2">
-          <Link
-            href="/ai"
-            className={cn(
-              buttonVariants({ variant: "outline", size: "sm" }),
-              "h-8 flex-1 gap-1.5 rounded-lg border text-xs font-medium shadow-[0_0_8px_rgba(59,96,100,0.1)]",
-            )}
-            style={{
-              borderColor: "#cbdcde",
-              background: "linear-gradient(to right, #eff3f1, #e1ede7)",
-            }}
-          >
-            <Wand2
-              className="size-3.5"
-              strokeWidth={2}
-              style={{ color: "#4b8575" }}
+      {subscriptionRows.length > 0 ? (
+        <div className="flex flex-col divide-y divide-[var(--cazura-border)]">
+          {previewSubscriptionRows.map((s) => (
+            <SubscriptionCardRowItem
+              key={s.id}
+              row={s}
+              onEdit={() => setEditing(toEditValues(s))}
+              onDelete={() => onDelete(s.id)}
             />
-            <span
-              className="bg-gradient-to-r from-[var(--cazura-teal)] via-[var(--cazura-teal-light)] to-[var(--cazura-teal-soft)] bg-clip-text font-medium text-transparent"
-              style={{ WebkitTextFillColor: "transparent" }}
-            >
-              Ask AI
-            </span>
-          </Link>
-          <SubscriptionFormDialog
-            categories={categories}
-            paymentMethods={paymentMethods}
-            edit={editing}
-            onEditClear={() => setEditing(null)}
-            trigger={
-              <button
-                type="button"
-                className={cn(
-                  buttonVariants({ size: "sm" }),
-                  "h-8 flex-1 gap-1.5 rounded-lg border text-xs font-medium shadow-[0_2px_8px_rgba(0,0,0,0.1)]",
-                )}
-                style={{
-                  background: "var(--cazura-teal)",
-                  borderColor: "#629298",
-                  color: "var(--cazura-panel)",
-                }}
-              >
-                <Plus className="size-3.5" strokeWidth={2.5} />
-                Subscription
-              </button>
-            }
-          />
+          ))}
         </div>
-        <AddTransactionDialog
-          categories={categories}
-          paymentMethods={paymentMethods}
-          trigger={
-            <button
-              type="button"
-              className={cn(
-                buttonVariants({ variant: "outline", size: "sm" }),
-                "h-8 w-full gap-1.5 rounded-lg border text-xs font-medium",
-              )}
-              style={{
-                borderColor: "var(--cazura-border)",
-                color: "var(--cazura-text)",
-              }}
-            >
-              <Plus className="size-3.5" strokeWidth={2} />
-              One-off transaction
-            </button>
-          }
-        />
+      ) : null}
+
+      {subscriptionRows.length > 0 ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="h-auto w-full cursor-pointer gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium shadow-none"
+          style={{
+            background: "var(--cazura-panel)",
+            borderColor: "var(--cazura-border)",
+            color: "var(--cazura-text)",
+          }}
+          onClick={() => setViewAllOpen(true)}
+        >
+          Detailed View
+          <ArrowUpRight className="size-3.5" strokeWidth={2} />
+        </Button>
+      ) : (
+        <div
+          className="flex w-full items-center justify-center rounded-lg border px-3 py-2 text-center text-xs font-medium shadow-none"
+          style={{
+            background: "var(--cazura-panel)",
+            borderColor: "var(--cazura-border)",
+            color: "var(--cazura-muted)",
+          }}
+        >
+          We do not have any subs.
+        </div>
+      )}
       </div>
 
-      <div className="flex flex-col gap-4">
-        {subscriptionRows.length === 0 ? (
-          <p
-            className="text-center text-[11px] leading-relaxed"
-            style={{ color: "var(--cazura-muted)" }}
-          >
-            No subscriptions yet. Add one to log fixed monthly charges or EMIs
-            automatically when the billing day arrives (checked when you open
-            this page, at most once per day).
-          </p>
-        ) : (
-          subscriptionRows.map((s) => (
-            <div
-              key={s.id}
-              className="flex items-start justify-between gap-2"
-            >
-              <div className="flex min-w-0 flex-1 items-start gap-2">
-                <CategoryIconShelf
-                  icon={s.categoryIcon}
-                  color={s.categoryColor}
-                  className="size-10 shrink-0 rounded-full border p-2"
-                  style={categoryIconShelfBorderStyle(s.categoryColor)}
-                  iconClassName="size-4"
-                />
-                <div className="flex min-w-0 flex-col gap-0.5">
-                  <span
-                    className="truncate text-sm font-medium"
-                    style={{ color: "var(--cazura-text)" }}
-                  >
-                    {s.serviceName}
-                  </span>
-                  <span
-                    className="text-[10px] text-[var(--cazura-label)]"
-                  >
-                    {s.categoryName}
-                  </span>
-                  <span
-                    className="text-[10px] leading-snug text-[var(--cazura-label)]"
-                  >
-                    {s.scheduleSummary}
-                    <span className="text-[var(--cazura-muted)]"> · </span>
-                    Next: {s.nextDueLabel}
-                  </span>
-                </div>
-              </div>
-              <div className="flex shrink-0 flex-col items-end gap-1">
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    className="flex items-center justify-center rounded-md border p-1"
-                    style={{ borderColor: "var(--cazura-border)" }}
-                  >
-                    <MoreHorizontal
-                      className="size-3 text-[var(--cazura-label)]"
-                      strokeWidth={2}
-                    />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-[120px]">
-                    <DropdownMenuItem
-                      onClick={() => setEditing(toEditValues(s))}
-                    >
-                      <Pencil className="size-3.5" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onClick={() => onDelete(s.id)}
-                    >
-                      <Trash2 className="size-3.5" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <span
-                  className="text-xs font-bold whitespace-nowrap"
-                  style={{ color: "var(--cazura-text)" }}
+      <Dialog open={viewAllOpen} onOpenChange={setViewAllOpen}>
+        <DialogContent
+          className="w-full max-w-[calc(100%-2rem)] gap-0 border-[var(--cazura-border)] bg-[var(--cazura-panel)] p-0 text-[var(--cazura-text)] ring-[var(--cazura-border)] sm:max-w-lg"
+          showCloseButton={false}
+        >
+          <div className="flex flex-col gap-3 border-b border-[var(--cazura-border)] px-4 pt-4 pb-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <DialogHeader className="min-w-0 flex-1 space-y-1.5 text-left">
+              <DialogTitle style={{ color: "var(--cazura-text)" }}>
+                Subscriptions
+              </DialogTitle>
+              <DialogDescription style={{ color: "var(--cazura-muted)" }}>
+                All recurring subscriptions and EMIs.
+              </DialogDescription>
+            </DialogHeader>
+            <SubscriptionFormDialog
+              categories={categories}
+              paymentMethods={paymentMethods}
+              edit={editing}
+              onEditClear={() => setEditing(null)}
+              trigger={
+                <button
+                  type="button"
+                  className={cn(
+                    subscriptionAddButtonClassName,
+                    "self-end sm:mt-0.5 sm:self-start",
+                  )}
+                  style={subscriptionAddButtonStyle}
                 >
-                  {formatInr(s.amount)}
-                </span>
-              </div>
+                  <Plus className="size-3.5" strokeWidth={2.5} />
+                  Add Subscription
+                </button>
+              }
+            />
+          </div>
+          <ScrollArea className="max-h-[min(60vh,420px)] overflow-hidden pb-4 pl-4 pr-3">
+            <div className="flex flex-col divide-y divide-[var(--cazura-border)]">
+              {subscriptionRows.map((s) => (
+                <SubscriptionCardRowItem
+                  key={s.id}
+                  variant="dialog"
+                  row={s}
+                  onEdit={() => {
+                    setViewAllOpen(false);
+                    setEditing(toEditValues(s));
+                  }}
+                  onDelete={() => onDelete(s.id)}
+                />
+              ))}
             </div>
-          ))
-        )}
-      </div>
-    </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+    </>
+    </TooltipProvider>
   );
 }

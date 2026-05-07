@@ -1,7 +1,14 @@
+"use client";
+
 import {
   CategoryIconShelf,
   categoryIconShelfBorderStyle,
 } from "@/lib/category-color";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 function chipClass() {
@@ -31,13 +38,28 @@ export function TransactionCategoryLabel({
   if (variant === "cazura") {
     return (
       <div className="flex min-w-0 w-full flex-wrap items-center gap-x-1.5 gap-y-1">
-        <CategoryIconShelf
-          icon={icon}
-          color={color}
-          className="size-[26px] shrink-0 border p-1"
-          style={categoryIconShelfBorderStyle(color)}
-          iconClassName="size-3"
-        />
+        <Tooltip>
+          <TooltipTrigger
+            type="button"
+            className={cn(
+              "inline-flex cursor-default rounded-md border-0 bg-transparent p-0 outline-none",
+              "focus-visible:ring-2 focus-visible:ring-[var(--cazura-teal)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--cazura-panel)]",
+            )}
+            aria-label={`Category: ${name}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <CategoryIconShelf
+              icon={icon}
+              color={color}
+              className="size-[26px] shrink-0 border p-1"
+              style={categoryIconShelfBorderStyle(color)}
+              iconClassName="size-3"
+            />
+          </TooltipTrigger>
+          <TooltipContent side="top" sideOffset={6}>
+            {name}
+          </TooltipContent>
+        </Tooltip>
         <span
           className="min-w-0 max-w-full text-sm font-medium break-words"
           style={{ color: "var(--cazura-text)" }}
@@ -71,6 +93,7 @@ export function TransactionCategoryLabel({
       <CategoryIconShelf
         icon={icon}
         color={color}
+        title={name}
         className={cn("size-8", hasExtra && "mt-0.5")}
         iconClassName="size-4"
       />

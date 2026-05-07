@@ -81,6 +81,7 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const isAiAssistantPage = pathname === "/ai";
+  const isTransactionsPage = pathname.startsWith("/transactions");
 
   function isMainActive(href: string, label: string) {
     if (label === "Overview") return pathname === "/overview";
@@ -216,7 +217,9 @@ export function AppShell({
             "min-h-0 flex-1 overflow-x-hidden",
             isAiAssistantPage
               ? "flex flex-col overflow-hidden"
-              : "overflow-y-auto px-4 pt-4 pb-6 lg:px-4",
+              : isTransactionsPage
+                ? "overflow-y-auto px-4 pt-4 pb-6 lg:flex lg:flex-col lg:overflow-hidden lg:px-4 lg:pb-4 lg:[&>*]:flex lg:[&>*]:min-h-0 lg:[&>*]:flex-1 lg:[&>*]:flex-col"
+                : "overflow-y-auto px-4 pt-4 pb-6 lg:px-4",
           )}
         >
           {children}

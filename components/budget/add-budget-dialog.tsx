@@ -91,6 +91,7 @@ function categoryTriggerShelf(c: BudgetExpenseCategory) {
     <CategoryIconShelf
       icon={c.icon}
       color={c.color}
+      title={c.name}
       className="size-9 shrink-0 border p-1.5"
       style={categoryIconShelfBorderStyle(c.color)}
       iconClassName="size-4"

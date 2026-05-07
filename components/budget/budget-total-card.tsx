@@ -4,6 +4,12 @@ import {
   CategoryIconShelf,
   categoryIconShelfBorderStyle,
 } from "@/lib/category-color";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { formatInr } from "@/lib/money";
 import type { BudgetSegment } from "@/lib/budget-segments";
 import { timeQueryString } from "@/lib/search-params-time";
@@ -46,13 +52,14 @@ export function BudgetTotalCard({
   const totalWeight = segments.reduce((a, s) => a + s.weight, 0);
 
   return (
-    <div
-      className="flex h-full min-h-0 flex-col gap-0 rounded-xl border p-3"
-      style={{
-        background: "var(--cazura-panel)",
-        borderColor: "var(--cazura-border)",
-      }}
-    >
+    <TooltipProvider delay={400}>
+      <div
+        className="flex h-full min-h-0 flex-col gap-0 rounded-xl border p-3"
+        style={{
+          background: "var(--cazura-panel)",
+          borderColor: "var(--cazura-border)",
+        }}
+      >
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <span
           className="min-w-0 flex-1 text-base font-bold"
@@ -110,28 +117,24 @@ export function BudgetTotalCard({
       <div className="relative z-0 flex items-stretch gap-0.5 pl-1">
         {totalWeight > 0 ? (
           segments.map((s, i) => (
-            <div
-              key={i}
-              className="group relative flex min-h-4 min-w-2"
-              style={{ flex: s.weight }}
-              aria-label={`${s.categoryName}, ${formatInr(s.spent)} spent`}
-            >
-              <div
-                className="h-4 w-full min-h-4 rounded-md"
-                style={{ background: s.color }}
-              />
-              <div
-                className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-30 w-max max-w-[min(240px,calc(100vw-2rem))] -translate-x-1/2 rounded-lg border px-2.5 py-2 opacity-0 shadow-md transition-opacity duration-150 group-hover:opacity-100"
-                style={{
-                  background: "var(--cazura-panel)",
-                  borderColor: "var(--cazura-border)",
-                }}
-                role="tooltip"
+            <Tooltip key={i}>
+              <TooltipTrigger
+                type="button"
+                className="group relative flex min-h-4 min-w-2 cursor-default border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-[var(--cazura-border)] focus-visible:ring-offset-2"
+                style={{ flex: s.weight }}
+                aria-label={`${s.categoryName}, ${formatInr(s.spent)} spent`}
               >
+                <div
+                  className="h-4 w-full min-h-4 rounded-md"
+                  style={{ background: s.color }}
+                />
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={6}>
                 <div className="flex items-center gap-2">
                   <CategoryIconShelf
                     icon={s.categoryIcon}
                     color={s.color}
+                    title={s.categoryName}
                     className="size-7 shrink-0 border p-1"
                     style={categoryIconShelfBorderStyle(s.color)}
                     iconClassName="size-3.5"
@@ -151,8 +154,8 @@ export function BudgetTotalCard({
                     </p>
                   </div>
                 </div>
-              </div>
-            </div>
+              </TooltipContent>
+            </Tooltip>
           ))
         ) : (
           <div
@@ -162,5 +165,6 @@ export function BudgetTotalCard({
         )}
       </div>
     </div>
+    </TooltipProvider>
   );
 }

@@ -9,25 +9,35 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  CategoryIconShelf,
+  categoryIconShelfBorderStyle,
+} from "@/lib/category-color";
 import { formatInr } from "@/lib/money";
 import { cn, formatPaymentMethodLabel } from "@/lib/utils";
 import {
   ArrowDown,
   ArrowUp,
-  ChevronLeft,
-  ChevronRight,
+  LayoutGrid,
   MoreHorizontal,
   Search,
   SlidersHorizontal,
+  TrendingDown,
+  TrendingUp,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 export type { ActivityRow };
 
-const PAGE_SIZES = [10, 20, 50] as const;
+const INITIAL_VISIBLE = 20;
+const LOAD_MORE_STEP = 20;
 
 function formatTableDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -45,6 +55,15 @@ function formatTableTime(iso: string) {
   });
 }
 
+/** Fixed slot matching `CategoryIconShelf` size so filter rows align. */
+function FilterMenuIconSlot({ children }: { children: ReactNode }) {
+  return (
+    <span className="flex size-[22px] shrink-0 items-center justify-center">
+      {children}
+    </span>
+  );
+}
+
 export function TransactionsActivityTable({
   rows: rowsProp,
 }: {
@@ -55,15 +74,46 @@ export function TransactionsActivityTable({
   const rows = opt?.displayRows ?? rowsProp ?? [];
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<"all" | "income" | "expense">("all");
-  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(20);
-  const [page, setPage] = useState(1);
+  const [categoryName, setCategoryName] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
   const [dateSort, setDateSort] = useState<"asc" | "desc">("desc");
   const [detailRow, setDetailRow] = useState<ActivityRow | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
+
+  /** One entry per category name in `rows` (icon/color from first matching row). */
+  const categoryFilterOptions = useMemo(() => {
+    const firstByName = new Map<
+      string,
+      { icon: string | null; color: string }
+    >();
+    for (const r of rows) {
+      if (!firstByName.has(r.categoryName)) {
+        firstByName.set(r.categoryName, {
+          icon: r.categoryIcon,
+          color: r.categoryColor,
+        });
+      }
+    }
+    return [...firstByName.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, meta]) => ({ name, ...meta }));
+  }, [rows]);
+
+  useEffect(() => {
+    if (
+      categoryName !== null &&
+      !categoryFilterOptions.some((c) => c.name === categoryName)
+    ) {
+      setCategoryName(null);
+    }
+  }, [categoryName, categoryFilterOptions]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter((r) => {
       if (kind !== "all" && r.categoryType !== kind) return false;
+      if (categoryName !== null && r.categoryName !== categoryName) return false;
       if (!q) return true;
       const hay = [
         r.categoryName,
@@ -76,7 +126,7 @@ export function TransactionsActivityTable({
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [rows, query, kind]);
+  }, [rows, query, kind, categoryName]);
 
   const ordered = useMemo(() => {
     const copy = [...filtered];
@@ -90,14 +140,46 @@ export function TransactionsActivityTable({
     return copy;
   }, [filtered, dateSort]);
 
-  const totalPages = Math.max(1, Math.ceil(ordered.length / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const sliceStart = (safePage - 1) * pageSize;
-  const pageRows = ordered.slice(sliceStart, sliceStart + pageSize);
+  /** Net of all rows matching the current filters (income minus expense). */
+  const listedNetTotal = useMemo(() => {
+    let net = 0;
+    for (const r of ordered) {
+      net += r.categoryType === "income" ? r.amount : -r.amount;
+    }
+    return net;
+  }, [ordered]);
+
+  useEffect(() => {
+    setVisibleCount(Math.min(INITIAL_VISIBLE, ordered.length));
+  }, [query, kind, categoryName, dateSort]);
+
+  const displayedRows = ordered.slice(
+    0,
+    Math.min(visibleCount, ordered.length),
+  );
+  const hasMore = displayedRows.length < ordered.length;
+
+  useEffect(() => {
+    const root = scrollAreaRef.current;
+    const target = loadMoreSentinelRef.current;
+    if (!root || !target || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry?.isIntersecting) return;
+        setVisibleCount((c) => Math.min(c + LOAD_MORE_STEP, ordered.length));
+      },
+      { root, rootMargin: "120px", threshold: 0 },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMore, ordered.length, displayedRows.length]);
 
   return (
-    <div
-      className="flex flex-col overflow-hidden rounded-xl border"
+    <TooltipProvider delay={400}>
+      <div
+      className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border"
       style={{
         background: "var(--cazura-panel)",
         borderColor: "var(--cazura-border)",
@@ -109,7 +191,7 @@ export function TransactionsActivityTable({
           if (!open) setDetailRow(null);
         }}
       />
-      <div className="flex flex-wrap items-center gap-2.5 px-3 pt-3">
+      <div className="flex shrink-0 flex-wrap items-center gap-2.5 px-3 pt-3">
         <span
           className="min-w-0 flex-1 text-[15px] font-bold"
           style={{ color: "var(--cazura-text)" }}
@@ -133,7 +215,6 @@ export function TransactionsActivityTable({
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
-              setPage(1);
             }}
             className="placeholder:text-[var(--cazura-label)] w-[128px] min-w-0 border-0 bg-transparent text-[11px] outline-none sm:w-[160px]"
             style={{ color: "var(--cazura-text)" }}
@@ -154,16 +235,96 @@ export function TransactionsActivityTable({
             <SlidersHorizontal className="size-3" strokeWidth={2} />
             Filter
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[140px]">
-            <DropdownMenuItem onClick={() => { setKind("all"); setPage(1); }}>
-              All
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { setKind("income"); setPage(1); }}>
-              Income only
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { setKind("expense"); setPage(1); }}>
-              Expense only
-            </DropdownMenuItem>
+          <DropdownMenuContent
+            align="end"
+            className="min-w-[180px] max-h-[min(22rem,70vh)]"
+          >
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Type</DropdownMenuLabel>
+              <DropdownMenuItem
+                className="gap-2"
+                onClick={() => setKind("all")}
+              >
+                <FilterMenuIconSlot>
+                  <LayoutGrid
+                    className="size-3.5"
+                    strokeWidth={2}
+                    style={{ color: "var(--cazura-label)" }}
+                  />
+                </FilterMenuIconSlot>
+                All
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="gap-2"
+                onClick={() => setKind("income")}
+              >
+                <FilterMenuIconSlot>
+                  <TrendingUp
+                    className="size-3.5"
+                    strokeWidth={2.5}
+                    style={{ color: "var(--cazura-teal-mid)" }}
+                  />
+                </FilterMenuIconSlot>
+                Income only
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="gap-2"
+                onClick={() => setKind("expense")}
+              >
+                <FilterMenuIconSlot>
+                  <TrendingDown
+                    className="size-3.5"
+                    strokeWidth={2.5}
+                    style={{ color: "var(--cazura-red)" }}
+                  />
+                </FilterMenuIconSlot>
+                Expense only
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            {categoryFilterOptions.length > 0 ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Categories</DropdownMenuLabel>
+                  <DropdownMenuItem
+                    className="gap-2"
+                    onClick={() => {
+                      setCategoryName(null);
+                    }}
+                  >
+                    <FilterMenuIconSlot>
+                      <LayoutGrid
+                        className="size-3.5"
+                        strokeWidth={2}
+                        style={{ color: "var(--cazura-label)" }}
+                      />
+                    </FilterMenuIconSlot>
+                    All categories
+                  </DropdownMenuItem>
+                  {categoryFilterOptions.map(({ name, icon, color }) => (
+                    <DropdownMenuItem
+                      key={name}
+                      className="gap-2"
+                      onClick={() => {
+                        setCategoryName(name);
+                      }}
+                    >
+                      <FilterMenuIconSlot>
+                        <CategoryIconShelf
+                          icon={icon}
+                          color={color}
+                          title={name}
+                          className="size-full border p-0.5"
+                          style={categoryIconShelfBorderStyle(color)}
+                          iconClassName="size-3"
+                        />
+                      </FilterMenuIconSlot>
+                      <span className="min-w-0 flex-1 truncate">{name}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+              </>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
         <Button
@@ -183,11 +344,11 @@ export function TransactionsActivityTable({
       </div>
 
       <div
-        className="m-3 overflow-hidden rounded-lg border"
+        className="m-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border"
         style={{ borderColor: "var(--cazura-border)" }}
       >
         <div
-          className="flex min-w-[720px] items-center gap-3 border-b px-3 py-2"
+          className="flex min-w-[720px] shrink-0 items-center gap-3 border-b px-3 py-2"
           style={{
             background: "#f0f0f0",
             borderColor: "var(--cazura-row-divider)",
@@ -199,10 +360,9 @@ export function TransactionsActivityTable({
           <button
             type="button"
             className="flex w-[148px] shrink-0 items-center gap-0.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--cazura-border)] focus-visible:ring-offset-2"
-            onClick={() => {
-              setDateSort((d) => (d === "asc" ? "desc" : "asc"));
-              setPage(1);
-            }}
+            onClick={() =>
+              setDateSort((d) => (d === "asc" ? "desc" : "asc"))
+            }
             aria-label={
               dateSort === "asc"
                 ? "Date: oldest first. Click to sort newest first."
@@ -232,8 +392,11 @@ export function TransactionsActivityTable({
           </span>
         </div>
 
-        <div className="max-h-[min(520px,55vh)] overflow-y-auto overflow-x-auto">
-          {pageRows.length === 0 ? (
+        <div
+          ref={scrollAreaRef}
+          className="min-h-0 flex-1 overflow-y-auto overflow-x-auto"
+        >
+          {displayedRows.length === 0 ? (
             <p
               className="px-3 py-10 text-center text-xs"
               style={{ color: "var(--cazura-muted)" }}
@@ -243,219 +406,153 @@ export function TransactionsActivityTable({
                 : "No transactions match your search or filter."}
             </p>
           ) : (
-            pageRows.map((tx, i) => (
-              <div
-                key={tx.id}
-                tabIndex={0}
-                aria-haspopup="dialog"
-                aria-label={`View details: ${tx.categoryName}, ${tx.categoryType === "income" ? "income" : "expense"} ${formatInr(tx.amount)}`}
-                className={cn(
-                  "flex min-w-[720px] cursor-pointer items-center gap-3 px-3 py-3 outline-none transition-colors hover:bg-[var(--cazura-canvas)] focus-visible:bg-[var(--cazura-canvas)] focus-visible:ring-2 focus-visible:ring-[var(--cazura-border)] focus-visible:ring-offset-2",
-                  i < pageRows.length - 1 && "border-b",
-                  tx.optimistic && "opacity-[0.72]",
-                )}
-                style={{
-                  background: "var(--cazura-panel)",
-                  borderColor: "var(--cazura-row-divider)",
-                }}
-                onClick={() => {
-                  if (tx.optimistic) return;
-                  setDetailRow(tx);
-                }}
-                onKeyDown={(e) => {
-                  if (tx.optimistic) return;
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
+            <>
+              {displayedRows.map((tx, i) => (
+                <div
+                  key={tx.id}
+                  tabIndex={0}
+                  aria-haspopup="dialog"
+                  aria-label={`View details: ${tx.categoryName}, ${tx.categoryType === "income" ? "income" : "expense"} ${formatInr(tx.amount)}`}
+                  className={cn(
+                    "flex min-w-[720px] cursor-pointer items-center gap-3 px-3 py-3 outline-none transition-colors hover:bg-[var(--cazura-canvas)] focus-visible:bg-[var(--cazura-canvas)] focus-visible:ring-2 focus-visible:ring-[var(--cazura-border)] focus-visible:ring-offset-2",
+                    i < displayedRows.length - 1 && "border-b",
+                    tx.optimistic && "opacity-[0.72]",
+                  )}
+                  style={{
+                    background: "var(--cazura-panel)",
+                    borderColor: "var(--cazura-row-divider)",
+                  }}
+                  onClick={() => {
+                    if (tx.optimistic) return;
                     setDetailRow(tx);
-                  }
-                }}
-              >
-                <div className="min-w-[220px] flex-1 basis-0">
-                  <div className="min-w-0">
-                    <TransactionCategoryLabel
-                      name={tx.categoryName}
-                      icon={tx.categoryIcon}
-                      color={tx.categoryColor}
-                      transactionName={tx.transactionName}
-                      note={tx.note}
-                      variant="cazura"
-                    />
+                  }}
+                  onKeyDown={(e) => {
+                    if (tx.optimistic) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setDetailRow(tx);
+                    }
+                  }}
+                >
+                  <div className="min-w-[220px] flex-1 basis-0">
+                    <div className="min-w-0">
+                      <TransactionCategoryLabel
+                        name={tx.categoryName}
+                        icon={tx.categoryIcon}
+                        color={tx.categoryColor}
+                        transactionName={tx.transactionName}
+                        note={tx.note}
+                        variant="cazura"
+                      />
+                    </div>
+                  </div>
+                  <span
+                    className="w-[148px] shrink-0 text-xs font-medium"
+                    style={{ color: "var(--cazura-muted)" }}
+                  >
+                    {formatTableDate(tx.occurredAt)}
+                  </span>
+                  <span
+                    className="w-24 shrink-0 text-xs font-medium"
+                    style={{ color: "var(--cazura-muted)" }}
+                  >
+                    {formatTableTime(tx.occurredAt)}
+                  </span>
+                  <span
+                    className="w-[128px] shrink-0 pr-3 text-right text-xs font-bold tabular-nums"
+                    style={{
+                      color:
+                        tx.categoryType === "income"
+                          ? "var(--cazura-teal-mid)"
+                          : "var(--cazura-red)",
+                    }}
+                  >
+                    {tx.categoryType === "income" ? "+" : "−"}
+                    {formatInr(tx.amount)}
+                  </span>
+                  <span
+                    className="w-[120px] shrink-0 text-xs font-medium"
+                    style={{ color: "var(--cazura-text)" }}
+                  >
+                    {formatPaymentMethodLabel(tx.paymentMethod)}
+                  </span>
+                  <div
+                    className="flex w-12 shrink-0 justify-end"
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  >
+                    {tx.optimistic ? (
+                      <span
+                        className="text-[10px] font-medium"
+                        style={{ color: "var(--cazura-muted)" }}
+                      >
+                        Saving…
+                      </span>
+                    ) : (
+                      <TransactionRowActions
+                        id={tx.id}
+                        row={tx}
+                        variant="cazura"
+                      />
+                    )}
                   </div>
                 </div>
+              ))}
+              {hasMore ? (
+                <div
+                  ref={loadMoreSentinelRef}
+                  className="h-1 w-full shrink-0"
+                  aria-hidden
+                />
+              ) : null}
+              <div
+                className="flex min-w-[720px] items-center gap-3 border-t px-3 py-2.5"
+                style={{
+                  background: "#f0f0f0",
+                  borderColor: "var(--cazura-row-divider)",
+                }}
+                role="row"
+                aria-label={`Total for listed transactions: ${listedNetTotal >= 0 ? "+" : "−"}${formatInr(Math.abs(listedNetTotal))}`}
+              >
                 <span
-                  className="w-[148px] shrink-0 text-xs font-medium"
-                  style={{ color: "var(--cazura-muted)" }}
+                  className="min-w-[220px] flex-1 basis-0 text-xs font-bold"
+                  style={{ color: "var(--cazura-text)" }}
                 >
-                  {formatTableDate(tx.occurredAt)}
+                  Total
                 </span>
-                <span
-                  className="w-24 shrink-0 text-xs font-medium"
-                  style={{ color: "var(--cazura-muted)" }}
-                >
-                  {formatTableTime(tx.occurredAt)}
-                </span>
+                <span className="w-[148px] shrink-0" aria-hidden />
+                <span className="w-24 shrink-0" aria-hidden />
                 <span
                   className="w-[128px] shrink-0 pr-3 text-right text-xs font-bold tabular-nums"
                   style={{
                     color:
-                      tx.categoryType === "income"
+                      listedNetTotal >= 0
                         ? "var(--cazura-teal-mid)"
                         : "var(--cazura-red)",
                   }}
                 >
-                  {tx.categoryType === "income" ? "+" : "−"}
-                  {formatInr(tx.amount)}
+                  {listedNetTotal >= 0 ? "+" : "−"}
+                  {formatInr(Math.abs(listedNetTotal))}
                 </span>
-                <span
-                  className="w-[120px] shrink-0 text-xs font-medium"
-                  style={{ color: "var(--cazura-text)" }}
-                >
-                  {formatPaymentMethodLabel(tx.paymentMethod)}
-                </span>
-                <div
-                  className="flex w-12 shrink-0 justify-end"
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.stopPropagation()}
-                >
-                  {tx.optimistic ? (
-                    <span
-                      className="text-[10px] font-medium"
-                      style={{ color: "var(--cazura-muted)" }}
-                    >
-                      Saving…
-                    </span>
-                  ) : (
-                    <TransactionRowActions
-                      id={tx.id}
-                      row={tx}
-                      variant="cazura"
-                    />
-                  )}
-                </div>
+                <span className="w-[120px] shrink-0" aria-hidden />
+                <span className="w-12 shrink-0" aria-hidden />
               </div>
-            ))
+            </>
           )}
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 px-4 pb-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-1.5 text-xs">
-          <span style={{ color: "var(--cazura-text)" }}>Show data</span>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className={cn(
-                buttonVariants({ variant: "ghost", size: "sm" }),
-                "h-7 rounded-md border px-2 text-xs font-medium shadow-none",
-              )}
-              style={{
-                background: "var(--cazura-canvas)",
-                borderColor: "var(--cazura-border)",
-                color: "var(--cazura-text)",
-              }}
-            >
-              {pageSize}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              {PAGE_SIZES.map((n) => (
-                <DropdownMenuItem
-                  key={n}
-                  onClick={() => {
-                    setPageSize(n);
-                    setPage(1);
-                  }}
-                >
-                  {n} per page
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <span style={{ color: "var(--cazura-text)" }}>
-            of {ordered.length}
-          </span>
+      {ordered.length > 0 ? (
+        <div
+          className="shrink-0 px-4 pb-3 text-xs"
+          style={{ color: "var(--cazura-muted)" }}
+        >
+          {displayedRows.length < ordered.length
+            ? `Showing ${displayedRows.length} of ${ordered.length}`
+            : `${ordered.length} transaction${ordered.length === 1 ? "" : "s"}`}
         </div>
-
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            className="flex items-center rounded-full border p-1"
-            style={{
-              background: safePage <= 1 ? "#f0f0f0" : "var(--cazura-panel)",
-              borderColor: "var(--cazura-border)",
-            }}
-            disabled={safePage <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="size-3 text-[var(--cazura-muted)]" />
-          </button>
-          {paginationItems(safePage, totalPages).map((item, idx) =>
-            item === "ellipsis" ? (
-              <span
-                key={`e-${idx}`}
-                className="flex size-6 items-center justify-center text-xs text-[var(--cazura-muted)]"
-              >
-                …
-              </span>
-            ) : (
-              <button
-                key={item}
-                type="button"
-                className="flex size-6 items-center justify-center rounded-md text-xs"
-                style={{
-                  background:
-                    item === safePage ? "var(--cazura-teal)" : "transparent",
-                  color:
-                    item === safePage
-                      ? "var(--cazura-panel)"
-                      : "var(--cazura-muted)",
-                  fontWeight: item === safePage ? 500 : 400,
-                }}
-                onClick={() => setPage(item)}
-              >
-                {item}
-              </button>
-            ),
-          )}
-          <button
-            type="button"
-            className="flex items-center rounded-full border p-1"
-            style={{
-              background:
-                safePage >= totalPages ? "#f0f0f0" : "var(--cazura-panel)",
-              borderColor: "var(--cazura-border)",
-            }}
-            disabled={safePage >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            aria-label="Next page"
-          >
-            <ChevronRight className="size-3 text-[var(--cazura-muted)]" />
-          </button>
-        </div>
-      </div>
+      ) : null}
     </div>
+    </TooltipProvider>
   );
-}
-
-function paginationItems(
-  current: number,
-  total: number,
-): (number | "ellipsis")[] {
-  if (total <= 7) {
-    return Array.from({ length: total }, (_, i) => i + 1);
-  }
-  const set = new Set<number>();
-  set.add(1);
-  set.add(total);
-  for (let d = -1; d <= 1; d++) {
-    const p = current + d;
-    if (p > 1 && p < total) set.add(p);
-  }
-  const sorted = [...set].sort((a, b) => a - b);
-  const out: (number | "ellipsis")[] = [];
-  for (let i = 0; i < sorted.length; i++) {
-    const cur = sorted[i]!;
-    if (i > 0 && cur - sorted[i - 1]! > 1) out.push("ellipsis");
-    out.push(cur);
-  }
-  return out;
 }

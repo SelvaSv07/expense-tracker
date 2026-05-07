@@ -50,28 +50,32 @@ export function TransactionsPageShell({
 }) {
   return (
     <OptimisticTransactionsProvider initialRows={activityRows}>
-      <div className="flex flex-col gap-4 pb-2">
-        <TransactionsPageHeader
-          preset={preset}
-          basePath={basePath}
-          monthKey={monthKey}
-          custom={custom}
-          categories={categoryOptions}
-          paymentMethods={paymentMethodOptions}
-        />
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
+        <div className="shrink-0">
+          <TransactionsPageHeader
+            preset={preset}
+            basePath={basePath}
+            monthKey={monthKey}
+            custom={custom}
+            categories={categoryOptions}
+            paymentMethods={paymentMethodOptions}
+          />
+        </div>
 
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-4">
-          <div className="flex min-w-0 flex-1 flex-col gap-4">
-            <TransactionStatMiniCards
-              income={agg.income}
-              prevIncome={agg.prevIncome}
-              expense={agg.expense}
-              prevExpense={agg.prevExpense}
-            />
+        <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row lg:items-stretch lg:gap-4">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
+            <div className="shrink-0">
+              <TransactionStatMiniCards
+                income={agg.income}
+                prevIncome={agg.prevIncome}
+                expense={agg.expense}
+                prevExpense={agg.prevExpense}
+              />
+            </div>
             <TransactionsActivityTable />
           </div>
 
-          <div className="flex w-full shrink-0 flex-col gap-4 lg:w-[276px]">
+          <div className="flex w-full shrink-0 flex-col gap-4 lg:min-h-0 lg:w-[276px]">
             <ExpenseBreakdownCazura
               breakdown={breakdown}
               categoryIcons={categoryIcons}

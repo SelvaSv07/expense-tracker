@@ -358,6 +358,7 @@ export function AddTransactionDialog({
                             <CategoryIconShelf
                               icon={selected.icon}
                               color={selected.color}
+                              title={selected.name}
                               className="size-6 shrink-0 rounded-md"
                               iconClassName="size-3.5"
                             />
@@ -376,6 +377,7 @@ export function AddTransactionDialog({
                           <CategoryIconShelf
                             icon={c.icon}
                             color={c.color}
+                            title={c.name}
                             className="size-8"
                             iconClassName="size-4"
                           />

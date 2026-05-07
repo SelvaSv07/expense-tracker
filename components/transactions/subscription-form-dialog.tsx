@@ -267,7 +267,7 @@ export function SubscriptionFormDialog({
       <DialogContent className="max-h-[min(90vh,640px)] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {edit ? "Edit subscription" : "Add subscription"}
+            {edit ? "Edit subscription" : "Add Subscription"}
           </DialogTitle>
         </DialogHeader>
 
@@ -304,28 +304,51 @@ export function SubscriptionFormDialog({
             <Controller
               control={form.control}
               name="categoryId"
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {expenseCategories.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        <span className="flex items-center gap-2">
-                          <CategoryIconShelf
-                            icon={c.icon}
-                            color={c.color}
-                            className="size-7 rounded-md border p-1"
-                            iconClassName="size-3.5"
-                          />
-                          {c.name}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              render={({ field }) => {
+                const selected =
+                  expenseCategories.find((c) => c.id === field.value) ??
+                  categories.find((c) => c.id === field.value);
+                return (
+                  <Select
+                    modal={false}
+                    value={field.value ? field.value : null}
+                    onValueChange={(v) => field.onChange(v ?? "")}
+                  >
+                    <SelectTrigger className="!h-auto min-h-9 w-full min-w-0 items-center py-2">
+                      <SelectValue placeholder="Category">
+                        {selected ? (
+                          <span className="flex min-h-0 items-center gap-2.5">
+                            <CategoryIconShelf
+                              icon={selected.icon}
+                              color={selected.color}
+                              title={selected.name}
+                              className="size-7 shrink-0 rounded-md border p-1"
+                              iconClassName="size-3.5"
+                            />
+                            <span className="truncate">{selected.name}</span>
+                          </span>
+                        ) : null}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {expenseCategories.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          <span className="flex items-center gap-2">
+                            <CategoryIconShelf
+                              icon={c.icon}
+                              color={c.color}
+                              title={c.name}
+                              className="size-7 rounded-md border p-1"
+                              iconClassName="size-3.5"
+                            />
+                            {c.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                );
+              }}
             />
             {form.formState.errors.categoryId && (
               <p className="text-destructive text-xs">
@@ -470,7 +493,7 @@ export function SubscriptionFormDialog({
                 </Button>
               }
             />
-            <Button type="submit">{edit ? "Save" : "Add subscription"}</Button>
+            <Button type="submit">{edit ? "Save" : "Add Subscription"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

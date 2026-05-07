@@ -337,6 +337,7 @@ export function CategoriesManager({
                       <CategoryIconShelf
                         icon={selectedIcon}
                         color={selectedColor}
+                        title={formatCategoryIconLabel(selectedIcon)}
                         className="size-8 shrink-0 self-center"
                         iconClassName="size-4"
                       />
@@ -377,6 +378,7 @@ export function CategoriesManager({
                             <CategoryIconShelf
                               icon={iconName}
                               color={selectedColor}
+                              title={formatCategoryIconLabel(iconName)}
                               className="size-9"
                               iconClassName="size-4"
                             />
@@ -433,6 +435,7 @@ export function CategoriesManager({
                     <CategoryIconShelf
                       icon={c.icon}
                       color={c.color}
+                      title={c.name}
                       className="size-8"
                       iconClassName="size-4"
                     />

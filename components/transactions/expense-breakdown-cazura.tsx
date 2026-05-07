@@ -12,10 +12,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cazuraTooltipSurfaceClassName } from "@/components/ui/tooltip";
 import { computeExpenseBubblePack } from "@/lib/expense-bubble-pack";
+import { formatInr } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { ArrowUpRight, MoreHorizontal } from "lucide-react";
-import { useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+  type RefObject,
+} from "react";
+import { createPortal } from "react-dom";
 
 const BUBBLE_COLORS = ["#3b6064", "#528186", "#7f9da0", "#a2b046"] as const;
 
@@ -34,39 +47,198 @@ const DIALOG_PACK_H = 220;
 
 type BreakdownItem = { name: string; value: number };
 
+/** Same stack as chart tooltips + `TooltipContent`; portaled so main overflow doesn’t clip. */
+function BubbleTooltipBody({
+  name,
+  amount,
+  pctLabel,
+  accentColor,
+}: {
+  name: string;
+  amount: number;
+  pctLabel: string;
+  accentColor: string;
+}) {
+  return (
+    <>
+      <p
+        className="mb-0.5 text-[11px] font-semibold leading-tight"
+        style={{ color: "var(--cazura-text)" }}
+      >
+        {name}
+      </p>
+      <p
+        className="mb-0.5 text-[11px] font-medium tabular-nums leading-tight"
+        style={{ color: "var(--cazura-muted)" }}
+      >
+        {formatInr(amount)}
+      </p>
+      <p
+        className="text-[11px] font-bold tabular-nums leading-tight"
+        style={{ color: accentColor }}
+      >
+        {pctLabel}%
+      </p>
+    </>
+  );
+}
+
+const TOOLTIP_MAX_WIDTH_PX = 224;
+
+/** Lets pointer move from anchor row into portaled tooltip without flicker. */
+const HOVER_TOOLTIP_CLOSE_DELAY_MS = 120;
+
+/** Row lists: optional above icon; bubbles use centered-under-anchor. */
+function BubbleTooltipPortal({
+  anchorRef,
+  open,
+  children,
+  placement = "below-center",
+  onPointerEnter,
+  onPointerLeave,
+}: {
+  anchorRef: RefObject<HTMLElement | null>;
+  open: boolean;
+  children: ReactNode;
+  placement?: "below-center" | "below-start" | "above-center";
+  onPointerEnter?: () => void;
+  onPointerLeave?: () => void;
+}) {
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [popupStyle, setPopupStyle] = useState<CSSProperties>({});
+
+  useLayoutEffect(() => {
+    if (!open || !anchorRef.current) {
+      setPopupStyle({});
+      return;
+    }
+
+    const updatePosition = () => {
+      const el = anchorRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const gap = 8;
+      const vw =
+        typeof window !== "undefined" ? window.innerWidth : r.width + r.left;
+      const approxWidth = Math.min(TOOLTIP_MAX_WIDTH_PX, vw - 16);
+      const tip = tooltipRef.current;
+      const tipRect = tip?.getBoundingClientRect();
+      const measured =
+        tipRect && tipRect.width > 0 ? tipRect.width : 0;
+      const tw = measured > 0 ? measured : approxWidth;
+
+      const anchorCenterX = r.left + r.width / 2;
+
+      /** Clamp horizontal placement using real tooltip width (approx width skewed clamp vs icon). */
+      const clampLeftEdgeCentered = () => {
+        let left = anchorCenterX - tw / 2;
+        left = Math.max(gap, Math.min(left, vw - gap - tw));
+        return left;
+      };
+
+      if (placement === "below-start") {
+        let left = r.left;
+        left = Math.max(gap, Math.min(left, vw - gap - tw));
+        setPopupStyle({
+          position: "fixed",
+          top: r.bottom + gap,
+          left,
+          transform: "none",
+          zIndex: 100,
+        });
+      } else if (placement === "above-center") {
+        setPopupStyle({
+          position: "fixed",
+          top: r.top - gap,
+          left: clampLeftEdgeCentered(),
+          transform: "translateY(-100%)",
+          zIndex: 100,
+        });
+      } else {
+        setPopupStyle({
+          position: "fixed",
+          top: r.bottom + gap,
+          left: clampLeftEdgeCentered(),
+          transform: "none",
+          zIndex: 100,
+        });
+      }
+    };
+
+    updatePosition();
+    const raf = requestAnimationFrame(() => updatePosition());
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+
+    const tipEl = tooltipRef.current;
+    const resizeObs =
+      typeof ResizeObserver !== "undefined" && tipEl
+        ? new ResizeObserver(() => updatePosition())
+        : null;
+    resizeObs?.observe(tipEl);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      resizeObs?.disconnect();
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [open, anchorRef, placement]);
+
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      ref={tooltipRef}
+      role="tooltip"
+      data-slot="tooltip-content"
+      style={popupStyle}
+      className={cn(
+        cazuraTooltipSurfaceClassName,
+        "min-w-0 max-w-[min(14rem,calc(100vw-1.5rem))] text-left animate-in fade-in-0 zoom-in-95 duration-100",
+      )}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
+    >
+      {children}
+    </div>,
+    document.body,
+  );
+}
+
 function formatPct(value: number, total: number) {
   const pct = (value / total) * 100;
   return String(Math.round(pct));
 }
 
-function BubbleChartTooltip({
+/** Matches subscription/tooltip panel styling; CSS hover avoids broken anchors on absolute bubbles. */
+function BubbleHoverDetails({
   name,
+  amount,
   pctLabel,
   accentColor,
 }: {
   name: string;
+  amount: number;
   pctLabel: string;
   accentColor: string;
 }) {
   return (
     <div
-      className="pointer-events-none absolute top-[calc(100%+8px)] left-1/2 z-50 max-w-[min(14rem,calc(100vw-1.5rem))] min-w-0 -translate-x-1/2 rounded-lg border px-2.5 py-1.5 text-center opacity-0 shadow-md transition-opacity duration-150 group-hover:opacity-100"
-      style={{
-        background: "var(--cazura-panel)",
-        borderColor: "var(--cazura-border)",
-        color: "var(--cazura-text)",
-        boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
-      }}
+      className={cn(
+        cazuraTooltipSurfaceClassName,
+        "pointer-events-none absolute top-[calc(100%+8px)] left-1/2 z-[100] max-w-[min(14rem,calc(100vw-1.5rem))] min-w-0 -translate-x-1/2 text-center opacity-0 transition-opacity duration-150 group-hover:opacity-100",
+      )}
+      role="tooltip"
     >
-      <div className="line-clamp-2 text-xs leading-snug font-bold break-words">
-        {name}
-      </div>
-      <div
-        className="mt-0.5 text-[11px] font-semibold whitespace-nowrap tabular-nums"
+      <span className="block font-bold">{name}</span>
+      <span className="block tabular-nums">{formatInr(amount)}</span>
+      <span
+        className="block font-semibold tabular-nums"
         style={{ color: accentColor }}
       >
         {pctLabel}%
-      </div>
+      </span>
     </div>
   );
 }
@@ -117,8 +289,9 @@ function BubblePack({
               zIndex: i + 1,
             }}
           >
-            <BubbleChartTooltip
+            <BubbleHoverDetails
               name={b.name}
+              amount={b.value}
               pctLabel={tipPct}
               accentColor={color}
             />
@@ -202,8 +375,9 @@ function BubblePackD3({
               zIndex: i + 1,
             }}
           >
-            <BubbleChartTooltip
+            <BubbleHoverDetails
               name={node.name}
+              amount={raw}
               pctLabel={tipPct}
               accentColor={color}
             />
@@ -223,6 +397,95 @@ function BubblePackD3({
         );
       })}
     </div>
+  );
+}
+
+function OtherCategoryRow({
+  item,
+  total,
+  rowIndex,
+  categoryIcons,
+  categoryColors,
+}: {
+  item: BreakdownItem;
+  total: number;
+  rowIndex: number;
+  categoryIcons: Record<string, string | null>;
+  categoryColors: Record<string, string>;
+}) {
+  const iconAnchorRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [tipOpen, setTipOpen] = useState(false);
+  const tipPct = formatPct(item.value, total);
+  const accent =
+    categoryColors[item.name] ?? BUBBLE_COLORS[rowIndex % BUBBLE_COLORS.length];
+
+  const cancelScheduledClose = useCallback(() => {
+    if (closeTimerRef.current != null) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
+  const showTooltip = useCallback(() => {
+    cancelScheduledClose();
+    setTipOpen(true);
+  }, [cancelScheduledClose]);
+
+  const hideTooltipSoon = useCallback(() => {
+    cancelScheduledClose();
+    closeTimerRef.current = setTimeout(() => {
+      setTipOpen(false);
+      closeTimerRef.current = null;
+    }, HOVER_TOOLTIP_CLOSE_DELAY_MS);
+  }, [cancelScheduledClose]);
+
+  useEffect(() => () => cancelScheduledClose(), [cancelScheduledClose]);
+
+  return (
+    <>
+      <div
+        className="flex cursor-default items-center gap-2"
+        onPointerEnter={showTooltip}
+        onPointerLeave={hideTooltipSoon}
+      >
+        <div ref={iconAnchorRef} className="inline-flex shrink-0">
+          <CategoryIconShelf
+            icon={categoryIcons[item.name] ?? null}
+            color={categoryColors[item.name]}
+            className="size-6 shrink-0 rounded-md border p-1"
+            style={categoryIconShelfBorderStyle(categoryColors[item.name])}
+            iconClassName="size-[11px]"
+          />
+        </div>
+        <span
+          className="min-w-0 flex-1 truncate text-xs"
+          style={{ color: "var(--cazura-text)" }}
+        >
+          {item.name}
+        </span>
+        <span
+          className="text-[10px] font-bold whitespace-nowrap"
+          style={{ color: "var(--cazura-text)" }}
+        >
+          {tipPct}%
+        </span>
+      </div>
+      <BubbleTooltipPortal
+        anchorRef={iconAnchorRef}
+        open={tipOpen}
+        placement="above-center"
+        onPointerEnter={showTooltip}
+        onPointerLeave={hideTooltipSoon}
+      >
+        <BubbleTooltipBody
+          name={item.name}
+          amount={item.value}
+          pctLabel={tipPct}
+          accentColor={accent}
+        />
+      </BubbleTooltipPortal>
+    </>
   );
 }
 
@@ -247,28 +510,15 @@ function OtherCategoriesList({
         Other Categories
       </p>
       <div className="flex flex-col gap-2">
-        {items.map((o) => (
-          <div key={o.name} className="flex items-center gap-2">
-            <CategoryIconShelf
-              icon={categoryIcons[o.name] ?? null}
-              color={categoryColors[o.name]}
-              className="size-6 rounded-md border p-1"
-              style={categoryIconShelfBorderStyle(categoryColors[o.name])}
-              iconClassName="size-[11px]"
-            />
-            <span
-              className="min-w-0 flex-1 truncate text-xs"
-              style={{ color: "var(--cazura-text)" }}
-            >
-              {o.name}
-            </span>
-            <span
-              className="text-[10px] font-bold whitespace-nowrap"
-              style={{ color: "var(--cazura-text)" }}
-            >
-              {formatPct(o.value, total)}%
-            </span>
-          </div>
+        {items.map((o, i) => (
+          <OtherCategoryRow
+            key={o.name}
+            item={o}
+            total={total}
+            rowIndex={i}
+            categoryIcons={categoryIcons}
+            categoryColors={categoryColors}
+          />
         ))}
       </div>
     </div>
@@ -294,44 +544,47 @@ export function ExpenseBreakdownCazura({
   if (total === 0 || top4.length === 0) {
     return (
       <div
-        className="flex flex-col gap-6 rounded-xl border p-3"
+          className="flex flex-col gap-4 rounded-xl border p-3"
+          style={{
+            background: "var(--cazura-panel)",
+            borderColor: "var(--cazura-border)",
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className="flex-1 text-[15px] font-bold"
+              style={{ color: "var(--cazura-text)" }}
+            >
+              Expense Breakdown
+            </span>
+            <div
+              className="flex items-center justify-center rounded-lg border p-1.5"
+              style={{ borderColor: "var(--cazura-border)" }}
+            >
+              <MoreHorizontal
+                className="size-3.5 text-[var(--cazura-label)]"
+                strokeWidth={2}
+              />
+            </div>
+          </div>
+          <p
+            className="text-center text-xs"
+            style={{ color: "var(--cazura-muted)" }}
+          >
+            No expense data in this range.
+          </p>
+        </div>
+    );
+  }
+
+  return (
+      <div
+        className="flex flex-col gap-4 rounded-xl border p-3"
         style={{
           background: "var(--cazura-panel)",
           borderColor: "var(--cazura-border)",
         }}
       >
-        <div className="flex items-center gap-2">
-          <span
-            className="flex-1 text-[15px] font-bold"
-            style={{ color: "var(--cazura-text)" }}
-          >
-            Expense Breakdown
-          </span>
-          <div
-            className="flex items-center justify-center rounded-lg border p-1.5"
-            style={{ borderColor: "var(--cazura-border)" }}
-          >
-            <MoreHorizontal
-              className="size-3.5 text-[var(--cazura-label)]"
-              strokeWidth={2}
-            />
-          </div>
-        </div>
-        <p className="text-center text-xs" style={{ color: "var(--cazura-muted)" }}>
-          No expense data in this range.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className="flex flex-col gap-6 rounded-xl border p-3"
-      style={{
-        background: "var(--cazura-panel)",
-        borderColor: "var(--cazura-border)",
-      }}
-    >
       <Dialog open={seeAllOpen} onOpenChange={setSeeAllOpen}>
         <DialogContent
           className="flex max-h-[min(92vh,720px)] w-full max-w-[calc(100%-2rem)] flex-col gap-4 overflow-y-auto border-[var(--cazura-border)] bg-[var(--cazura-panel)] p-4 text-[var(--cazura-text)] ring-[var(--cazura-border)] sm:max-w-2xl"
@@ -363,28 +616,15 @@ export function ExpenseBreakdownCazura({
               className="max-h-[min(50vh,400px)] overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]"
             >
               <div className="flex flex-col gap-2 pb-1">
-                {sorted.map((o) => (
-                  <div key={o.name} className="flex items-center gap-2">
-                    <CategoryIconShelf
-                      icon={categoryIcons[o.name] ?? null}
-                      color={categoryColors[o.name]}
-                      className="size-6 shrink-0 rounded-md border p-1"
-                      style={categoryIconShelfBorderStyle(categoryColors[o.name])}
-                      iconClassName="size-[11px]"
-                    />
-                    <span
-                      className="min-w-0 flex-1 truncate text-xs"
-                      style={{ color: "var(--cazura-text)" }}
-                    >
-                      {o.name}
-                    </span>
-                    <span
-                      className="text-[10px] font-bold whitespace-nowrap"
-                      style={{ color: "var(--cazura-text)" }}
-                    >
-                      {formatPct(o.value, total)}%
-                    </span>
-                  </div>
+                {sorted.map((o, i) => (
+                  <OtherCategoryRow
+                    key={o.name}
+                    item={o}
+                    total={total}
+                    rowIndex={i}
+                    categoryIcons={categoryIcons}
+                    categoryColors={categoryColors}
+                  />
                 ))}
               </div>
             </div>
@@ -430,7 +670,7 @@ export function ExpenseBreakdownCazura({
       <Button
         type="button"
         variant="outline"
-        className="h-auto cursor-pointer gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium shadow-none"
+        className="h-auto w-full cursor-pointer gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium shadow-none"
         style={{
           background: "var(--cazura-panel)",
           borderColor: "var(--cazura-border)",

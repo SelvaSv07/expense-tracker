@@ -1,5 +1,7 @@
 "use client";
 
+import { cazuraTooltipSurfaceClassName } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import {
   Legend,
   PolarAngleAxis,
@@ -28,13 +30,7 @@ function BudgetRadarTooltip({
 
   if (cazura) {
     return (
-      <div
-        className="min-w-0 rounded-lg border bg-white px-2.5 py-1.5 shadow-md"
-        style={{
-          borderColor: "var(--cazura-border)",
-          boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
-        }}
-      >
+      <div className={cn(cazuraTooltipSurfaceClassName, "min-w-0 text-left")}>
         <p
           className="mb-0.5 text-[11px] font-semibold leading-tight"
           style={{ color: "var(--cazura-text)" }}

@@ -58,16 +58,20 @@ export function CategoryIconShelf({
   className,
   iconClassName,
   style,
+  /** Native tooltip when hovering the badge (e.g. category name when label is hidden). */
+  title: titleAttr,
 }: {
   icon: string | null;
   color: string | null | undefined;
   className?: string;
   iconClassName?: string;
   style?: CSSProperties;
+  title?: string;
 }) {
   const c = normalizeCategoryColor(color);
   return (
     <div
+      title={titleAttr}
       className={cn(
         "flex shrink-0 items-center justify-center rounded-lg",
         className,
