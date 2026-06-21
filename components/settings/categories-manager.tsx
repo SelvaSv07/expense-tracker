@@ -59,6 +59,7 @@ const createFormSchema = z.object({
   type: z.enum(["income", "expense"]),
   icon: z.enum(CATEGORY_ICON_OPTIONS as unknown as [string, ...string[]]),
   color: z.enum(CATEGORY_COLOR_OPTIONS as unknown as [string, ...string[]]),
+  keywords: z.string().max(500).optional(),
 });
 
 type CreateFormValues = z.infer<typeof createFormSchema>;
@@ -103,6 +104,7 @@ type CategoryRow = {
   type: string;
   icon: string | null;
   color: string;
+  keywords: string | null;
 };
 
 export function CategoriesManager({
@@ -143,6 +145,7 @@ export function CategoriesManager({
       type: c.type as "income" | "expense",
       icon: normalizeIconForForm(c.icon),
       color: normalizeColorForForm(c.color),
+      keywords: c.keywords ?? "",
     });
     setCategoryDialogOpen(true);
   }
@@ -321,6 +324,20 @@ export function CategoriesManager({
                     {form.formState.errors.color.message}
                   </p>
                 ) : null}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cat-keywords">
+                  Keywords (comma-separated)
+                </Label>
+                <Input
+                  id="cat-keywords"
+                  placeholder="e.g. swiggy, zomato, food"
+                  {...form.register("keywords")}
+                />
+                <p className="text-muted-foreground text-xs">
+                  When importing a bank statement, descriptions containing any
+                  keyword are auto-assigned to this category.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="category-icon-picker">Icon</Label>

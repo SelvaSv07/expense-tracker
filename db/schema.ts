@@ -202,6 +202,8 @@ export const categories = pgTable(
     icon: text("icon"),
     /** Hex fill color for icon tile (e.g. #22c55e). */
     color: text("color").notNull().default("#64748b"),
+    /** Comma-separated keywords used by statement importer to auto-assign this category. */
+    keywords: text("keywords"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("categories_user_id_idx").on(t.userId)],

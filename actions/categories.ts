@@ -19,6 +19,7 @@ const createSchema = z.object({
   type: z.enum(["income", "expense"]),
   icon: iconSchema,
   color: categoryColorSchema,
+  keywords: z.string().max(500).optional(),
 });
 
 const updateSchema = createSchema.extend({
@@ -37,6 +38,7 @@ export async function createCategory(input: z.infer<typeof createSchema>) {
     type: parsed.type,
     icon: parsed.icon,
     color: parsed.color,
+    keywords: parsed.keywords?.trim() || null,
   });
 
   await bumpUserFinanceCache(session.user.id);
@@ -94,6 +96,7 @@ export async function updateCategory(input: z.infer<typeof updateSchema>) {
       type: parsed.type,
       icon: parsed.icon,
       color: parsed.color,
+      keywords: parsed.keywords?.trim() || null,
     })
     .where(eq(categories.id, parsed.categoryId));
 

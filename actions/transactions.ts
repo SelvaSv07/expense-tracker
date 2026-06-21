@@ -5,7 +5,7 @@ import { categories, transactions } from "@/db/schema";
 import { bumpUserFinanceCache } from "@/lib/cache";
 import { listPaymentMethods } from "@/lib/queries";
 import { getSession } from "@/lib/session";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -65,6 +65,77 @@ export async function createTransaction(input: z.infer<typeof schema>) {
   revalidatePath("/transactions");
   revalidatePath("/settings/payment-methods");
   return id;
+}
+
+const bulkSchema = z.object({
+  rows: z
+    .array(
+      z.object({
+        categoryId: z.string().min(1),
+        amount: z.number().int().positive(),
+        occurredAt: z.coerce.date(),
+        transactionName: z.string().optional(),
+        note: z.string().optional(),
+        paymentMethod: z.string().optional(),
+      }),
+    )
+    .min(1)
+    .max(1000),
+});
+
+/** Insert many parsed statement rows in one transaction. */
+export async function bulkCreateTransactions(
+  input: z.infer<typeof bulkSchema>,
+) {
+  const parsed = bulkSchema.parse(input);
+  const session = await getSession();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const userId = session.user.id;
+  const categoryIds = Array.from(new Set(parsed.rows.map((r) => r.categoryId)));
+
+  const validCats = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(
+      and(eq(categories.userId, userId), inArray(categories.id, categoryIds)),
+    );
+  const validIds = new Set(validCats.map((c) => c.id));
+  for (const id of categoryIds) {
+    if (!validIds.has(id)) {
+      throw new Error("One or more categories are invalid for this user.");
+    }
+  }
+
+  const methods = await listPaymentMethods(userId);
+  const allowed = new Set(methods.map((m) => m.name));
+
+  const values = parsed.rows.map((r) => {
+    const rawPm = r.paymentMethod?.trim();
+    const pm = rawPm && allowed.has(rawPm) ? rawPm : null;
+    return {
+      id: crypto.randomUUID(),
+      userId,
+      categoryId: r.categoryId,
+      amount: r.amount,
+      occurredAt: r.occurredAt,
+      transactionName: r.transactionName?.trim() || null,
+      note: r.note?.trim() || null,
+      paymentMethod: pm,
+    };
+  });
+
+  await db.transaction(async (tx) => {
+    await tx.insert(transactions).values(values);
+  });
+
+  await bumpUserFinanceCache(userId);
+  revalidatePath("/");
+  revalidatePath("/transactions");
+  revalidatePath("/overview");
+  revalidatePath("/budget");
+  revalidatePath("/settings/payment-methods");
+  return values.length;
 }
 
 export async function deleteTransaction(transactionId: string) {

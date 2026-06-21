@@ -14,6 +14,10 @@ import type {
   PaymentMethodOption,
   TransactionCategoryOption,
 } from "@/components/transactions/add-transaction-dialog";
+import type {
+  ImportCategoryOption,
+  ImportPaymentMethodOption,
+} from "@/components/transactions/import-statement-dialog";
 import type { TimePreset } from "@/lib/time-range";
 
 export function TransactionsPageShell({
@@ -29,6 +33,9 @@ export function TransactionsPageShell({
   basePath,
   monthKey,
   custom,
+  importCategories,
+  importPaymentMethods,
+  defaultPaymentMethod,
 }: {
   activityRows: ActivityRow[];
   categoryOptions: TransactionCategoryOption[];
@@ -47,6 +54,9 @@ export function TransactionsPageShell({
   basePath: string;
   monthKey?: string;
   custom?: { from: Date; to: Date };
+  importCategories: ImportCategoryOption[];
+  importPaymentMethods: ImportPaymentMethodOption[];
+  defaultPaymentMethod: string;
 }) {
   return (
     <OptimisticTransactionsProvider initialRows={activityRows}>
@@ -59,6 +69,9 @@ export function TransactionsPageShell({
             custom={custom}
             categories={categoryOptions}
             paymentMethods={paymentMethodOptions}
+            importCategories={importCategories}
+            importPaymentMethods={importPaymentMethods}
+            defaultPaymentMethod={defaultPaymentMethod}
           />
         </div>
 

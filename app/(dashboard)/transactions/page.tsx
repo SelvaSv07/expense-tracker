@@ -1,4 +1,5 @@
 import { TransactionsPageShell } from "@/components/transactions/transactions-page-shell";
+import { parseKeywords } from "@/lib/statement-categorizer";
 import { materializeSubscriptionCharges } from "@/lib/subscription-materialize";
 import { nextDueOnOrAfterUtc } from "@/lib/subscription-schedule";
 import { parseTimeFromSearchParams } from "@/lib/search-params-time";
@@ -100,6 +101,20 @@ export default async function TransactionsPage({
     name: m.name,
   }));
 
+  const importCategories = cats.map((c) => ({
+    id: c.id,
+    name: c.name,
+    type: c.type,
+    icon: c.icon,
+    color: c.color,
+    keywords: parseKeywords(c.keywords),
+  }));
+  const importPaymentMethods = payMethods.map((m) => ({ id: m.id, name: m.name }));
+  const defaultPaymentMethod =
+    importPaymentMethods.find((m) => /^card/i.test(m.name))?.name ??
+    importPaymentMethods[0]?.name ??
+    "";
+
   const activityRows = txs.map((tx) => ({
     id: tx.id,
     amount: tx.amount,
@@ -167,6 +182,9 @@ export default async function TransactionsPage({
       basePath="/transactions"
       monthKey={monthKey}
       custom={custom}
+      importCategories={importCategories}
+      importPaymentMethods={importPaymentMethods}
+      defaultPaymentMethod={defaultPaymentMethod}
     />
   );
 }

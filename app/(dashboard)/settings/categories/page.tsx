@@ -54,6 +54,7 @@ export default async function SettingsCategoriesPage() {
           type: c.type,
           icon: c.icon,
           color: c.color,
+          keywords: c.keywords,
         }))}
         usage={usage}
       />

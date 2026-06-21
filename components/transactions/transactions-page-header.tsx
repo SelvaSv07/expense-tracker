@@ -5,12 +5,17 @@ import {
   type PaymentMethodOption,
   type TransactionCategoryOption,
 } from "@/components/transactions/add-transaction-dialog";
+import {
+  ImportStatementDialog,
+  type ImportCategoryOption,
+  type ImportPaymentMethodOption,
+} from "@/components/transactions/import-statement-dialog";
 import { ExportMenu } from "@/components/transactions/export-menu";
 import { TimeframeToolbar } from "@/components/dashboard/timeframe-toolbar";
 import { buttonVariants } from "@/components/ui/button";
 import type { TimePreset } from "@/lib/time-range";
 import { cn } from "@/lib/utils";
-import { Plus } from "lucide-react";
+import { FileUp, Plus } from "lucide-react";
 
 export function TransactionsPageHeader({
   preset,
@@ -19,6 +24,9 @@ export function TransactionsPageHeader({
   custom,
   categories,
   paymentMethods,
+  importCategories,
+  importPaymentMethods,
+  defaultPaymentMethod,
 }: {
   preset: TimePreset;
   basePath: string;
@@ -26,6 +34,9 @@ export function TransactionsPageHeader({
   custom?: { from: Date; to: Date };
   categories: TransactionCategoryOption[];
   paymentMethods: PaymentMethodOption[];
+  importCategories: ImportCategoryOption[];
+  importPaymentMethods: ImportPaymentMethodOption[];
+  defaultPaymentMethod: string;
 }) {
   return (
     <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between">
@@ -56,6 +67,17 @@ export function TransactionsPageHeader({
           custom={custom}
           monthKey={monthKey}
           variant="cazura"
+        />
+        <ImportStatementDialog
+          categories={importCategories}
+          paymentMethods={importPaymentMethods}
+          defaultPaymentMethod={defaultPaymentMethod}
+          trigger={
+            <span className="flex items-center gap-1.5">
+              <FileUp className="size-3.5" strokeWidth={2.5} />
+              Import
+            </span>
+          }
         />
         <AddTransactionDialog
           categories={categories}
