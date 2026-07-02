@@ -1,76 +1,11 @@
 "use client";
 
+import { AppHeader } from "@/components/dashboard/app-header";
+import { SidebarNav } from "@/components/dashboard/sidebar-nav";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import {
-  ArrowLeftRight,
-  LayoutDashboard,
-  Map,
-  PanelLeftClose,
-  Settings,
-  Sparkles,
-  Target,
-  Wallet,
-} from "lucide-react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
-import { AppHeader } from "./app-header";
-import { LogoutButton } from "./logout-button";
-
-type NavDef = {
-  href: string;
-  label: string;
-  icon: typeof LayoutDashboard;
-  badge?: string;
-};
-
-const mainMenu: NavDef[] = [
-  { href: "/overview", label: "Overview", icon: LayoutDashboard },
-  { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
-  { href: "/budget", label: "Budget", icon: Map },
-  { href: "/goals", label: "Goals", icon: Target },
-];
-
-const toolsMenu: NavDef[] = [
-  { href: "/settings", label: "Settings", icon: Settings },
-];
-
-function NavItem({
-  href,
-  label,
-  icon: Icon,
-  badge,
-  active,
-}: NavDef & { active: boolean }) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "flex cursor-pointer items-center gap-2 rounded-lg border px-2 py-[7px] text-[13px] transition-colors",
-        active
-          ? "border-[var(--cazura-border)] bg-[var(--cazura-panel)] font-bold text-[var(--cazura-teal)]"
-          : "border-transparent font-normal text-[var(--cazura-muted)] hover:bg-[var(--cazura-panel)]/80 hover:text-[var(--cazura-text)]",
-      )}
-    >
-      <Icon
-        className={cn(
-          "size-[17px] shrink-0",
-          active ? "text-[var(--cazura-teal)]" : "text-[var(--cazura-muted)]",
-        )}
-        strokeWidth={1.8}
-      />
-      <span className="flex-1">{label}</span>
-      {badge ? (
-        <span
-          className="rounded-[10px] border border-[#809b9e] px-[7px] py-px text-[9px] font-bold text-[var(--cazura-panel)]"
-          style={{ background: "var(--cazura-teal)" }}
-        >
-          {badge}
-        </span>
-      ) : null}
-    </Link>
-  );
-}
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 
 export function AppShell({
   children,
@@ -83,120 +18,49 @@ export function AppShell({
   const isAiAssistantPage = pathname === "/ai";
   const isTransactionsPage = pathname.startsWith("/transactions");
 
-  function isMainActive(href: string, label: string) {
-    if (label === "Overview") return pathname === "/overview";
-    if (label === "Transactions") return pathname.startsWith("/transactions");
-    if (label === "Budget") return pathname.startsWith("/budget");
-    if (label === "Goals") return pathname.startsWith("/goals");
-    return pathname === href;
-  }
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
+  const desktopSidebarWidth = sidebarCollapsed ? 64 : 220;
+  const shellStyle = {
+    "--shell-sidebar-offset": `${desktopSidebarWidth + 16}px`,
+  } as CSSProperties;
 
   return (
     <div
-      className="bg-[var(--cazura-canvas)] relative box-border h-svh max-h-svh min-h-0 overflow-hidden p-4"
-      style={{ fontFamily: '"Satoshi", sans-serif' }}
+      className="bg-[var(--cazura-canvas)] relative box-border h-svh max-h-svh min-h-0 overflow-hidden p-0 lg:p-4"
+      style={{ ...shellStyle, fontFamily: '"Satoshi", sans-serif' }}
     >
-      <aside className="fixed top-4 bottom-4 left-4 z-40 flex w-[220px] flex-col overflow-hidden">
-        <div className="mb-2 flex items-center justify-between px-0 py-2">
-          <div className="flex items-center gap-2">
-            <div
-              className="relative flex size-[30px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/20 text-white shadow-[0_2px_3px_-1px_rgba(42,42,42,0.14)]"
-              style={{ background: "var(--cazura-teal)" }}
-            >
-              <Wallet className="size-4" strokeWidth={2} />
-            </div>
-            <span
-              className="text-[18px] font-bold tracking-tight"
-              style={{ color: "var(--cazura-text)" }}
-            >
-              Cazura
-            </span>
-          </div>
-          <button
-            type="button"
-            className="cursor-pointer text-[var(--cazura-label)] hover:text-[var(--cazura-muted)]"
-            aria-label="Collapse sidebar"
-          >
-            <PanelLeftClose className="size-[17px]" strokeWidth={1.8} />
-          </button>
-        </div>
-
-        <div
-          className="mb-3 h-px shrink-0"
-          style={{ background: "var(--cazura-border)" }}
+      <aside
+        className={cn(
+          "fixed top-2 bottom-2 left-2 z-40 hidden flex-col overflow-hidden transition-[width] duration-200 sm:top-3 sm:bottom-3 sm:left-3 lg:flex lg:top-4 lg:bottom-4 lg:left-4",
+          sidebarCollapsed ? "w-16" : "w-[220px]",
+        )}
+      >
+        <SidebarNav
+          collapsed={sidebarCollapsed}
+          showCollapseToggle
+          onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
         />
-
-        <Link
-          href="/ai"
-          className={cn(
-            "mb-2 flex cursor-pointer items-center gap-2 rounded-lg border px-2 py-[7px] transition-colors",
-            pathname === "/ai"
-              ? "border-[var(--cazura-border)] bg-[var(--cazura-panel)] font-bold"
-              : "border-transparent font-normal hover:bg-[var(--cazura-panel)]/80",
-          )}
-        >
-          <Sparkles
-            className={cn(
-              "size-[17px] shrink-0",
-              pathname === "/ai"
-                ? "text-[var(--cazura-teal)]"
-                : "text-[var(--cazura-teal-light)]",
-            )}
-            strokeWidth={1.8}
-          />
-          <span
-            className={cn(
-              "bg-clip-text text-[13px] text-transparent",
-              pathname === "/ai"
-                ? "bg-gradient-to-r from-[var(--cazura-teal)] via-[var(--cazura-teal-light)] to-[var(--cazura-teal-soft)] font-bold"
-                : "bg-gradient-to-r from-[var(--cazura-teal)] via-[var(--cazura-teal-light)] to-[var(--cazura-teal-soft)] font-medium",
-            )}
-            style={{ WebkitTextFillColor: "transparent" }}
-          >
-            Cazura AI Assistant
-          </span>
-        </Link>
-
-        <div className="min-h-0 flex-1 overflow-hidden pr-1">
-          <div className="space-y-3 pb-4">
-            <div>
-              <p className="text-[var(--cazura-label)] mb-1.5 px-2 text-[11px] font-medium tracking-wide">
-                MAIN MENU
-              </p>
-              <nav className="flex flex-col gap-0.5">
-                {mainMenu.map((item) => (
-                  <NavItem
-                    key={`${item.label}-${item.href}`}
-                    {...item}
-                    active={isMainActive(item.href, item.label)}
-                  />
-                ))}
-              </nav>
-            </div>
-
-            <div>
-              <p className="text-[var(--cazura-label)] mb-1.5 px-2 text-[11px] font-medium tracking-wide">
-                TOOLS
-              </p>
-              <nav className="flex flex-col gap-0.5">
-                {toolsMenu.map((item) => (
-                  <NavItem
-                    key={item.label}
-                    {...item}
-                    active={pathname.startsWith(item.href)}
-                  />
-                ))}
-              </nav>
-            </div>
-          </div>
-        </div>
-
-        <LogoutButton />
       </aside>
+
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent
+          side="left"
+          className="w-[min(280px,85vw)] border-[var(--cazura-border)] bg-[var(--cazura-canvas)] p-4"
+          showCloseButton
+        >
+          <SidebarNav onNavigate={() => setMobileNavOpen(false)} />
+        </SheetContent>
+      </Sheet>
 
       <div
         className={cn(
-          "border-[var(--cazura-panel-border)] ml-[236px] flex h-[calc(100svh-2rem)] min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border",
+          "ml-0 flex h-svh min-h-0 min-w-0 flex-col overflow-hidden transition-[margin] duration-200 lg:ml-[var(--shell-sidebar-offset)] lg:h-[calc(100svh-2rem)] lg:rounded-xl lg:border lg:border-[var(--cazura-panel-border)]",
           isAiAssistantPage
             ? "bg-[var(--cazura-canvas)]"
             : "bg-[var(--cazura-panel)]",
@@ -211,15 +75,15 @@ export function AppShell({
             : undefined
         }
       >
-        <AppHeader user={user} />
+        <AppHeader user={user} onMenuClick={() => setMobileNavOpen(true)} />
         <main
           className={cn(
             "min-h-0 flex-1 overflow-x-hidden",
             isAiAssistantPage
               ? "flex flex-col overflow-hidden"
               : isTransactionsPage
-                ? "overflow-y-auto px-4 pt-4 pb-6 lg:flex lg:flex-col lg:overflow-hidden lg:px-4 lg:pb-4 lg:[&>*]:flex lg:[&>*]:min-h-0 lg:[&>*]:flex-1 lg:[&>*]:flex-col"
-                : "overflow-y-auto px-4 pt-4 pb-6 lg:px-4",
+                ? "overflow-y-auto px-3 pt-3 pb-5 sm:px-4 sm:pt-4 sm:pb-6 lg:flex lg:flex-col lg:overflow-hidden lg:px-4 lg:pb-4 lg:[&>*]:flex lg:[&>*]:min-h-0 lg:[&>*]:flex-1 lg:[&>*]:flex-col"
+                : "overflow-y-auto px-3 pt-3 pb-5 sm:px-4 sm:pt-4 sm:pb-6 lg:px-4",
           )}
         >
           {children}

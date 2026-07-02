@@ -61,39 +61,10 @@ type ReviewRow = ParsedTransaction & {
 const NONE_CATEGORY = "__none__";
 const BULK_NONE = "__bulk_none__";
 const NO_METHOD = "__no_method__";
-const ROLE_LABELS: Record<ColumnRole, string> = {
-  date: "Date",
-  description: "Description",
-  amount: "Amount",
-  withdrawal: "Withdrawal",
-  deposit: "Deposit",
-  balance: "Balance",
-  reference: "Reference",
-  ignore: "—",
-};
 
 function formatDateForInput(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function detectedColumnsSummary(cols: DetectedColumns | null): string {
-  if (!cols) return "—";
-  const order: ColumnRole[] = [
-    "date",
-    "description",
-    "amount",
-    "withdrawal",
-    "deposit",
-    "balance",
-    "reference",
-  ];
-  const out: string[] = [];
-  for (const role of order) {
-    const idx = cols[role];
-    if (idx >= 0) out.push(`${ROLE_LABELS[role]} → col ${idx + 1}`);
-  }
-  return out.length ? out.join(" · ") : "No columns detected";
 }
 
 export function ImportStatementDialog({
@@ -355,31 +326,32 @@ export function ImportStatementDialog({
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="bg-muted/40 flex flex-wrap items-center justify-between gap-2 border-b px-5 py-2 text-xs">
-              <div className="flex min-w-0 items-center gap-2">
-                <FileSpreadsheet className="text-muted-foreground size-4 shrink-0" />
-                <span className="truncate font-medium">{fileMeta.name}</span>
-                <span className="text-muted-foreground">
-                  {(fileMeta.size / 1024).toFixed(1)} KB
-                </span>
-              </div>
-              <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
-                {parseResult ? (
-                  <>
-                    <span>Sheet: {parseResult.sheetName || "—"}</span>
-                    <span>Columns: {detectedColumnsSummary(parseResult.detectedColumns)}</span>
-                    <span>
-                      {parseResult.transactions.length} parsed ·{" "}
-                      {selectedCount} selected
-                    </span>
-                  </>
-                ) : null}
+            <div className="bg-muted/40 flex flex-wrap items-center gap-2 border-b px-5 py-3 text-xs">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+                <div className="flex min-w-0 items-center gap-2">
+                  <FileSpreadsheet className="text-muted-foreground size-4 shrink-0" />
+                  <span className="truncate font-medium">{fileMeta.name}</span>
+                  <span className="text-muted-foreground">
+                    {(fileMeta.size / 1024).toFixed(1)} KB
+                  </span>
+                </div>
+                <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
+                  {parseResult ? (
+                    <>
+                      <span>Sheet: {parseResult.sheetName || "—"}</span>
+                      <span>
+                        {parseResult.transactions.length} parsed ·{" "}
+                        {selectedCount} selected
+                      </span>
+                    </>
+                  ) : null}
+                </div>
               </div>
               <Button
                 type="button"
                 size="sm"
                 variant="ghost"
-                className="h-7 px-2 text-xs"
+                className="h-7 self-center px-2 text-xs text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/40"
                 onClick={reset}
                 disabled={pending}
               >
@@ -406,26 +378,13 @@ export function ImportStatementDialog({
             ) : null}
 
             <div className="flex flex-wrap items-center gap-2 border-b px-5 py-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="cursor-pointer h-7 text-xs"
-                onClick={() => toggleAllSelected(true)}
-                disabled={pending}
-              >
-                Select all
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="cursor-pointer h-7 text-xs"
-                onClick={() => toggleAllSelected(false)}
-                disabled={pending}
-              >
-                Deselect all
-              </Button>
+              <span className="text-muted-foreground text-xs">
+                {selectedCount === materialRows.length && materialRows.length > 0
+                  ? "All selected"
+                  : selectedCount === 0
+                    ? "None selected"
+                    : `${selectedCount} of ${materialRows.length} selected`}
+              </span>
               <div className="ml-auto flex items-center gap-2">
                 <Label className="text-xs">Bulk-assign category</Label>
                 <Select
@@ -449,8 +408,21 @@ export function ImportStatementDialog({
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <div className="grid grid-cols-[24px_130px_minmax(0,1fr)_150px_120px_92px] items-center gap-x-2 border-b bg-muted/30 px-5 py-2 text-xs font-medium text-muted-foreground">
-                <span></span>
+              <div className="sticky top-0 z-10 grid grid-cols-[24px_130px_minmax(0,1fr)_150px_120px_92px] items-center gap-x-2 border-b border-border bg-muted px-5 py-1.5 text-xs font-medium text-muted-foreground">
+                <div className="flex items-center justify-center">
+                  <Checkbox
+                    checked={
+                      materialRows.length > 0 &&
+                      materialRows.every((r) => r.selected)
+                    }
+                    indeterminate={
+                      selectedCount > 0 && selectedCount < materialRows.length
+                    }
+                    onCheckedChange={(v) => toggleAllSelected(Boolean(v))}
+                    disabled={pending || materialRows.length === 0}
+                    aria-label="Select all rows"
+                  />
+                </div>
                 <span>Date</span>
                 <span>Name</span>
                 <span>Category</span>
@@ -617,7 +589,7 @@ export function ImportStatementDialog({
           </div>
         )}
 
-        <DialogFooter className="mt-0 mx-0 mb-0 gap-2 border-t rounded-b-xl rounded-t-none bg-muted/50 px-5 py-3 sm:justify-between">
+        <DialogFooter className="mt-0 mx-0 mb-0 gap-2 border-t rounded-b-xl rounded-t-none bg-muted/50 px-5 py-3 sm:items-center sm:justify-between">
           <p className="text-muted-foreground text-xs">
             {fileMeta && parseResult
               ? `${selectedCount} selected · ${importableCount} ready${

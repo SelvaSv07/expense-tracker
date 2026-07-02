@@ -59,7 +59,7 @@ export function OverviewSavingGoals({ goal }: { goal: Goal | null }) {
             borderColor: "var(--cazura-border)",
           }}
         >
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <div
                 className="flex items-center justify-center rounded-md border border-[var(--cazura-border)] bg-[var(--cazura-panel)] p-1"
@@ -98,10 +98,10 @@ export function OverviewSavingGoals({ goal }: { goal: Goal | null }) {
           </div>
 
           <div className="flex justify-center">
-            <div className="relative h-[110px] w-[220px]">
+            <div className="relative mx-auto aspect-[220/110] w-full max-w-[220px]">
               <svg
                 viewBox="0 0 220 110"
-                className="absolute inset-0"
+                className="absolute inset-0 h-full w-full"
                 aria-hidden
               >
                 <path

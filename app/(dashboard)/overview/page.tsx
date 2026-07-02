@@ -16,6 +16,7 @@ import {
   listTransactionsWithCategory,
 } from "@/lib/cached-queries";
 import { listGoals } from "@/lib/queries";
+import { listCategories, listPaymentMethods } from "@/lib/queries";
 import {
   getRangeFromPreset,
   getWeeklyChartMonthContext,
@@ -52,6 +53,8 @@ export default async function OverviewPage({
     budgetUse,
     goals,
     todaySpend,
+    cats,
+    payMethods,
   ] = await Promise.all([
     getTransactionAggregates(userId, preset, custom, monthRef),
     getBalance(userId),
@@ -67,7 +70,22 @@ export default async function OverviewPage({
     getBudgetUsageForRange(userId, preset, custom, monthRef),
     listGoals(userId),
     getTodaySpend(userId),
+    listCategories(userId),
+    listPaymentMethods(userId),
   ]);
+
+  const categoryOptions = cats.map((c) => ({
+    id: c.id,
+    name: c.name,
+    type: c.type,
+    icon: c.icon,
+    color: c.color,
+  }));
+
+  const paymentMethodOptions = payMethods.map((m) => ({
+    id: m.id,
+    name: m.name,
+  }));
 
   const primaryGoal = goals[0];
   const deltaIncome = agg.income - agg.prevIncome;
@@ -79,7 +97,12 @@ export default async function OverviewPage({
     <div className="flex flex-col gap-4">
       <OverviewPageHeader />
 
-      <OverviewBalanceBanner balance={balance} todaySpend={todaySpend} />
+      <OverviewBalanceBanner
+        balance={balance}
+        todaySpend={todaySpend}
+        categories={categoryOptions}
+        paymentMethods={paymentMethodOptions}
+      />
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-4">
@@ -105,22 +128,24 @@ export default async function OverviewPage({
         </div>
 
         <div className="flex w-full shrink-0 flex-col gap-4 lg:w-[340px]">
-          <OverviewMyCards
-            budgeted={budgetUse.budgeted}
-            spent={budgetUse.spent}
-          />
-          <OverviewSavingGoals
-            goal={
-              primaryGoal
-                ? {
-                    name: primaryGoal.name,
-                    savedAmount: primaryGoal.savedAmount,
-                    targetAmount: primaryGoal.targetAmount,
-                    targetDate: primaryGoal.targetDate,
-                  }
-                : null
-            }
-          />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+            <OverviewMyCards
+              budgeted={budgetUse.budgeted}
+              spent={budgetUse.spent}
+            />
+            <OverviewSavingGoals
+              goal={
+                primaryGoal
+                  ? {
+                      name: primaryGoal.name,
+                      savedAmount: primaryGoal.savedAmount,
+                      targetAmount: primaryGoal.targetAmount,
+                      targetDate: primaryGoal.targetDate,
+                    }
+                  : null
+              }
+            />
+          </div>
         </div>
       </div>
     </div>

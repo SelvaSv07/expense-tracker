@@ -1,14 +1,13 @@
 "use client";
 
 import { TransactionCategoryLabel } from "@/components/transactions/transaction-category-label";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { formatInr } from "@/lib/money";
 import { formatPaymentMethodLabel } from "@/lib/utils";
 import {
   ArrowDown,
   ArrowUp,
   MoreHorizontal,
-  Search,
-  SlidersHorizontal,
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -36,13 +35,6 @@ function toOccurredDate(tx: Tx): Date {
 /** Fixed locale so SSR (Node) and the browser produce identical strings — avoids hydration mismatches. */
 const DISPLAY_LOCALE = "en-US";
 
-function ymdLocal(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
 function formatRowDate(d: Date): string {
   return d.toLocaleDateString(DISPLAY_LOCALE, {
     month: "long",
@@ -67,35 +59,25 @@ const COL_TIME = "w-24 shrink-0";
 const COL_AMOUNT = "w-[128px] shrink-0 pr-3 text-right tabular-nums";
 const COL_METHOD = "w-[120px] shrink-0";
 
-const inputBarClass =
-  "h-[30px] rounded-lg border px-2 text-[11px] outline-none focus-visible:ring-2 focus-visible:ring-[var(--cazura-border)] focus-visible:ring-offset-1";
+function formatCardDateTime(d: Date): string {
+  const datePart = d.toLocaleDateString(DISPLAY_LOCALE, {
+    month: "long",
+    day: "numeric",
+  });
+  const timePart = d.toLocaleTimeString(DISPLAY_LOCALE, {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+  return `${datePart}, ${timePart}`;
+}
 
 export function OverviewRecentTransactions({ rows }: { rows: Tx[] }) {
-  const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "amount">("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return rows.filter((tx) => {
-      if (!q) return true;
-      const occurred = toOccurredDate(tx);
-      const hay = [
-        tx.categoryName,
-        tx.transactionName ?? "",
-        tx.note ?? "",
-        tx.paymentMethod ?? "",
-        formatInr(tx.amount),
-        ymdLocal(occurred),
-      ]
-        .join(" ")
-        .toLowerCase();
-      return hay.includes(q);
-    });
-  }, [rows, query]);
-
   const ordered = useMemo(() => {
-    const copy = [...filtered];
+    const copy = [...rows];
     copy.sort((a, b) => {
       if (sortBy === "date") {
         const ta = toOccurredDate(a).getTime();
@@ -111,11 +93,12 @@ export function OverviewRecentTransactions({ rows }: { rows: Tx[] }) {
       return a.id.localeCompare(b.id);
     });
     return copy;
-  }, [filtered, sortBy, sortDir]);
+  }, [rows, sortBy, sortDir]);
 
   const display = ordered.slice(0, 8);
 
   return (
+    <TooltipProvider delay={400}>
     <div
       className="flex flex-col gap-3 rounded-xl border p-3"
       style={{
@@ -123,65 +106,78 @@ export function OverviewRecentTransactions({ rows }: { rows: Tx[] }) {
         borderColor: "var(--cazura-border)",
       }}
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <span
-          className="min-w-0 flex-1 text-[15px] font-bold"
-          style={{ color: "var(--cazura-text)" }}
-        >
-          Recent Transaction
-        </span>
-        <div
-          className="flex h-[30px] min-w-0 shrink-0 items-center gap-1.5 rounded-lg border px-2.5"
-          style={{
-            background: "var(--cazura-panel)",
-            borderColor: "var(--cazura-border)",
-          }}
-        >
-          <Search
-            className="size-3 shrink-0"
-            strokeWidth={2}
-            color="var(--cazura-label)"
-          />
-          <input
-            type="search"
-            placeholder="Search transaction"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className={`${inputBarClass} min-w-[100px] flex-1 border-0 bg-transparent sm:min-w-[140px]`}
-            style={{ color: "var(--cazura-text)" }}
-          />
-        </div>
-        <Link
-          href="/transactions"
-          className="flex h-[30px] shrink-0 items-center gap-1 rounded-lg border px-2.5 text-[11px] font-bold"
-          style={{
-            background: "var(--cazura-panel)",
-            borderColor: "var(--cazura-border)",
-            color: "var(--cazura-text)",
-          }}
-        >
-          <SlidersHorizontal className="size-3" strokeWidth={2} />
-          Filter
-        </Link>
-        <Link
-          href="/transactions"
-          className="flex size-[30px] shrink-0 items-center justify-center rounded-lg border"
-          style={{
-            background: "var(--cazura-panel)",
-            borderColor: "var(--cazura-border)",
-          }}
-          aria-label="More"
-        >
-          <MoreHorizontal
-            className="size-[13px]"
-            strokeWidth={2}
-            color="var(--cazura-label)"
-          />
-        </Link>
+      <span
+        className="text-[15px] font-bold"
+        style={{ color: "var(--cazura-text)" }}
+      >
+        Recent Transaction
+      </span>
+
+      <div className="flex flex-col gap-2 md:hidden">
+        {display.map((tx) => {
+          const positive = tx.categoryType === "income";
+          const occurred = toOccurredDate(tx);
+          return (
+            <div
+              key={tx.id}
+              className="flex flex-col gap-1.5 rounded-lg border p-3"
+              style={{
+                background: "var(--cazura-panel)",
+                borderColor: "var(--cazura-border)",
+              }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <TransactionCategoryLabel
+                    name={tx.categoryName}
+                    icon={tx.categoryIcon}
+                    color={tx.categoryColor}
+                    transactionName={tx.transactionName}
+                    note={tx.note}
+                    variant="cazura"
+                  />
+                </div>
+                <p
+                  className="shrink-0 text-right text-sm leading-none font-bold tabular-nums"
+                  style={{
+                    color: positive
+                      ? "var(--cazura-teal-mid)"
+                      : "var(--cazura-red)",
+                  }}
+                >
+                  {positive ? "+" : "-"}
+                  {formatInr(tx.amount)}
+                </p>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <p
+                  className="min-w-0 text-xs font-medium"
+                  style={{ color: "var(--cazura-muted)" }}
+                >
+                  {formatCardDateTime(occurred)}
+                </p>
+                <p
+                  className="shrink-0 text-right text-[11px] font-medium"
+                  style={{ color: "var(--cazura-text)" }}
+                >
+                  {formatPaymentMethodLabel(tx.paymentMethod)}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+        {rows.length === 0 ? (
+          <div
+            className="px-3 py-6 text-center text-sm"
+            style={{ color: "var(--cazura-muted)" }}
+          >
+            No transactions in this range.
+          </div>
+        ) : null}
       </div>
 
       <div
-        className="overflow-x-auto overflow-y-hidden rounded-lg border"
+        className="hidden overflow-x-auto overflow-y-hidden rounded-lg border md:block"
         style={{ borderColor: "var(--cazura-border)" }}
       >
         <div className="min-w-0">
@@ -375,16 +371,9 @@ export function OverviewRecentTransactions({ rows }: { rows: Tx[] }) {
               No transactions in this range.
             </div>
           ) : null}
-          {rows.length > 0 && display.length === 0 ? (
-            <div
-              className="px-3 py-6 text-center text-sm"
-              style={{ color: "var(--cazura-muted)" }}
-            >
-              No transactions match your search.
-            </div>
-          ) : null}
         </div>
       </div>
     </div>
+    </TooltipProvider>
   );
 }

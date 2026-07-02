@@ -94,78 +94,52 @@ export function OverviewCashFlow({
         borderColor: "var(--cazura-border)",
       }}
     >
-      <div className="flex flex-wrap items-center gap-2.5 px-3 pt-3 pb-0">
+      <div className="flex flex-col gap-2 px-3 pt-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2.5 sm:pb-0">
         <span
-          className="min-w-0 flex-1 text-[15px] font-bold"
+          className="min-w-0 text-[15px] font-bold"
           style={{ color: "var(--cazura-text)" }}
         >
           Cash Flow
         </span>
-        {isWeekly ? (
+        <div className="flex w-full min-w-0 items-center justify-end gap-2 sm:ml-auto sm:w-auto">
+          {isWeekly ? (
+            <div
+              className="flex h-[30px] shrink-0 items-center gap-0.5 rounded-lg border px-1 text-[11px] font-medium"
+              style={{
+                background: "var(--cazura-panel)",
+                borderColor: "var(--cazura-border)",
+                color: "var(--cazura-text)",
+              }}
+            >
+              <button
+                type="button"
+                aria-label="Previous month"
+                className="rounded p-0.5 hover:opacity-80"
+                onClick={() => pushWeekMonth(shiftMonth(weekFocus, -1))}
+              >
+                <ChevronLeft className="size-[13px]" strokeWidth={1.8} />
+              </button>
+              <span className="flex min-w-[4.5rem] items-center justify-center gap-1 px-0.5">
+                <CalendarDays
+                  className="size-[13px] shrink-0"
+                  strokeWidth={1.8}
+                />
+                {formatMonthYear(weekFocus)}
+              </span>
+              <button
+                type="button"
+                aria-label="Next month"
+                className="rounded p-0.5 hover:opacity-80"
+                onClick={() => pushWeekMonth(shiftMonth(weekFocus, 1))}
+              >
+                <ChevronRight className="size-[13px]" strokeWidth={1.8} />
+              </button>
+            </div>
+          ) : null}
           <div
-            className="flex h-[30px] shrink-0 items-center gap-0.5 rounded-lg border px-1 text-[11px] font-medium"
-            style={{
-              background: "var(--cazura-panel)",
-              borderColor: "var(--cazura-border)",
-              color: "var(--cazura-text)",
-            }}
+            className="flex rounded-lg"
+            style={{ background: "var(--cazura-canvas)" }}
           >
-            <button
-              type="button"
-              aria-label="Previous month"
-              className="rounded p-0.5 hover:opacity-80"
-              onClick={() => pushWeekMonth(shiftMonth(weekFocus, -1))}
-            >
-              <ChevronLeft className="size-[13px]" strokeWidth={1.8} />
-            </button>
-            <span className="flex min-w-[4.5rem] items-center justify-center gap-1 px-0.5">
-              <CalendarDays className="size-[13px] shrink-0" strokeWidth={1.8} />
-              {formatMonthYear(weekFocus)}
-            </span>
-            <button
-              type="button"
-              aria-label="Next month"
-              className="rounded p-0.5 hover:opacity-80"
-              onClick={() => pushWeekMonth(shiftMonth(weekFocus, 1))}
-            >
-              <ChevronRight className="size-[13px]" strokeWidth={1.8} />
-            </button>
-          </div>
-        ) : (
-          <div
-            className="flex h-[30px] shrink-0 items-center gap-0.5 rounded-lg border px-1 text-[11px] font-medium"
-            style={{
-              background: "var(--cazura-panel)",
-              borderColor: "var(--cazura-border)",
-              color: "var(--cazura-text)",
-            }}
-          >
-            <button
-              type="button"
-              aria-label="Previous year"
-              className="rounded p-0.5 hover:opacity-80"
-              onClick={() => pushWithChart({ year: clampYear(year - 1) })}
-            >
-              <ChevronLeft className="size-[13px]" strokeWidth={1.8} />
-            </button>
-            <span className="flex min-w-[3.25rem] items-center justify-center gap-1 px-0.5">
-              <CalendarDays className="size-[13px] shrink-0" strokeWidth={1.8} />
-              {year}
-            </span>
-            <button
-              type="button"
-              aria-label="Next year"
-              className="rounded p-0.5 hover:opacity-80"
-              onClick={() => pushWithChart({ year: clampYear(year + 1) })}
-            >
-              <ChevronRight className="size-[13px]" strokeWidth={1.8} />
-            </button>
-          </div>
-        )}
-        <div
-          className="flex rounded-lg"
-          style={{ background: "var(--cazura-canvas)" }}
-        >
           {(["weekly", "monthly", "yearly"] as const).map((t) => (
             <button
               key={t}
@@ -190,9 +164,10 @@ export function OverviewCashFlow({
               {t}
             </button>
           ))}
+          </div>
         </div>
       </div>
-      <div className="px-3 pb-2 pt-2">
+      <div className="px-2 pb-2 pt-2 sm:px-3">
         <IncomeExpenseChart data={data} />
       </div>
     </div>

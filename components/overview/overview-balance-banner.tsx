@@ -1,19 +1,40 @@
-import { buttonVariants } from "@/components/ui/button";
+import { OverviewAddTransactionTrigger } from "@/components/overview/overview-add-transaction-trigger";
+import type {
+  PaymentMethodOption,
+  TransactionCategoryOption,
+} from "@/components/transactions/add-transaction-dialog";
 import { formatInr } from "@/lib/money";
-import { cn } from "@/lib/utils";
-import { ChevronRight, Plus } from "lucide-react";
-import Link from "next/link";
+import { ChevronRight } from "lucide-react";
+
+function AddAction({
+  categories,
+  paymentMethods,
+}: {
+  categories: TransactionCategoryOption[];
+  paymentMethods: PaymentMethodOption[];
+}) {
+  return (
+    <OverviewAddTransactionTrigger
+      categories={categories}
+      paymentMethods={paymentMethods}
+    />
+  );
+}
 
 export function OverviewBalanceBanner({
   balance,
   todaySpend,
+  categories,
+  paymentMethods,
 }: {
   balance: number;
   todaySpend: number;
+  categories: TransactionCategoryOption[];
+  paymentMethods: PaymentMethodOption[];
 }) {
   return (
     <div
-      className="relative flex min-h-[90px] items-end justify-between overflow-hidden rounded-xl px-4 py-3.5"
+      className="relative overflow-hidden rounded-xl px-4 py-3.5"
       style={{
         backgroundImage:
           "linear-gradient(154.72deg, #ecf4ec 50%, #dbecdc 100%)",
@@ -27,60 +48,54 @@ export function OverviewBalanceBanner({
         }}
       />
 
-      <div className="relative flex flex-wrap items-end gap-3 md:gap-4">
-        <div>
-          <p
-            className="mb-1 text-[13px] font-medium"
-            style={{ color: "var(--cazura-label)" }}
-          >
-            Total balance
-          </p>
-          <p
-            className="text-[30px] leading-none font-bold"
-            style={{ color: "var(--cazura-teal)" }}
-          >
-            {formatInr(balance)}
-          </p>
+      <div className="relative flex items-end justify-between gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-end sm:gap-3 md:gap-4">
+          <div className="min-w-0">
+            <p
+              className="text-[13px] leading-none font-medium"
+              style={{ color: "var(--cazura-label)" }}
+            >
+              Total balance
+            </p>
+            <div className="mt-1 flex items-center justify-between gap-3 sm:block">
+              <p
+                className="min-w-0 text-[24px] leading-none font-bold sm:text-[30px]"
+                style={{ color: "var(--cazura-teal)" }}
+              >
+                {formatInr(balance)}
+              </p>
+              <div className="sm:hidden">
+                <AddAction
+                  categories={categories}
+                  paymentMethods={paymentMethods}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex min-w-0 items-center gap-1">
+            <span
+              className="text-xs font-medium"
+              style={{ color: "var(--cazura-label)" }}
+            >
+              Today&apos;s spend:
+            </span>
+            <span
+              className="text-[13px] font-bold"
+              style={{ color: "var(--cazura-teal-mid)" }}
+            >
+              {formatInr(todaySpend)}
+            </span>
+            <ChevronRight
+              className="size-[13px] shrink-0"
+              strokeWidth={2.5}
+              color="var(--cazura-teal-mid)"
+            />
+          </div>
         </div>
-        <div className="flex items-center gap-1 pb-0.5">
-          <span
-            className="text-xs font-medium"
-            style={{ color: "var(--cazura-label)" }}
-          >
-            Today&apos;s spend:
-          </span>
-          <span
-            className="text-[13px] font-bold"
-            style={{ color: "var(--cazura-teal-mid)" }}
-          >
-            {formatInr(todaySpend)}
-          </span>
-          <ChevronRight
-            className="size-[13px] shrink-0"
-            strokeWidth={2.5}
-            color="var(--cazura-teal-mid)"
-          />
-        </div>
-      </div>
 
-      <div className="relative flex flex-col items-center gap-1">
-        <Link
-          href="/transactions"
-          aria-label="Add transaction"
-          className={cn(
-            buttonVariants({ size: "icon" }),
-            "size-8 rounded-full border-0 shadow-[0_4px_12px_rgba(59,96,100,0.5)]",
-          )}
-          style={{ background: "var(--cazura-teal)" }}
-        >
-          <Plus className="size-[15px] text-white" strokeWidth={2.5} />
-        </Link>
-        <span
-          className="text-[10px] font-medium"
-          style={{ color: "var(--cazura-muted)" }}
-        >
-          Add
-        </span>
+        <div className="hidden shrink-0 sm:flex">
+          <AddAction categories={categories} paymentMethods={paymentMethods} />
+        </div>
       </div>
     </div>
   );

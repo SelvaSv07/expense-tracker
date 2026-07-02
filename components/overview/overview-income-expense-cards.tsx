@@ -42,7 +42,7 @@ export function OverviewIncomeExpenseCards({
     prevExpense > 0 ? ((expense - prevExpense) / prevExpense) * 100 : 0;
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-4 lg:grid-cols-2">
       <div
         className="flex min-w-0 flex-1 flex-col gap-3 rounded-xl border p-3"
         style={{
@@ -101,7 +101,7 @@ export function OverviewIncomeExpenseCards({
               from last period
             </p>
           </div>
-          <div className="flex shrink-0 items-end gap-1">
+          <div className="hidden min-[400px]:flex shrink-0 items-end gap-1">
             {incomeBars.map((h, i) => (
               <div
                 key={i}
@@ -171,7 +171,7 @@ export function OverviewIncomeExpenseCards({
               from last period
             </p>
           </div>
-          <div className="flex shrink-0 items-end gap-1">
+          <div className="hidden min-[400px]:flex shrink-0 items-end gap-1">
             {expenseBars.map((h, i) => (
               <div
                 key={i}

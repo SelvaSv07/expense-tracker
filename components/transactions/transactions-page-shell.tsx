@@ -1,5 +1,6 @@
 "use client";
 
+import { AddTransactionFab } from "@/components/transactions/add-transaction-fab";
 import { ExpenseBreakdownCazura } from "@/components/transactions/expense-breakdown-cazura";
 import { OptimisticTransactionsProvider } from "@/components/transactions/optimistic-transactions-context";
 import { TransactionStatMiniCards } from "@/components/transactions/transaction-stat-mini-cards";
@@ -60,7 +61,7 @@ export function TransactionsPageShell({
 }) {
   return (
     <OptimisticTransactionsProvider initialRows={activityRows}>
-      <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 pb-14 sm:pb-0">
         <div className="shrink-0">
           <TransactionsPageHeader
             preset={preset}
@@ -85,7 +86,10 @@ export function TransactionsPageShell({
                 prevExpense={agg.prevExpense}
               />
             </div>
-            <TransactionsActivityTable />
+            <TransactionsActivityTable
+              categories={categoryOptions}
+              paymentMethods={paymentMethodOptions}
+            />
           </div>
 
           <div className="flex w-full shrink-0 flex-col gap-4 lg:min-h-0 lg:w-[276px]">
@@ -102,6 +106,10 @@ export function TransactionsPageShell({
           </div>
         </div>
       </div>
+      <AddTransactionFab
+        categories={categoryOptions}
+        paymentMethods={paymentMethodOptions}
+      />
     </OptimisticTransactionsProvider>
   );
 }

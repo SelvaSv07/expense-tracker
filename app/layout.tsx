@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { Fira_Mono, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -43,10 +42,8 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          {children}
-          <Toaster position="bottom-right" richColors closeButton duration={4000} />
-        </ThemeProvider>
+        {children}
+        <Toaster position="bottom-right" richColors closeButton duration={4000} />
       </body>
     </html>
   );

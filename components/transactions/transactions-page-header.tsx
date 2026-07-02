@@ -38,30 +38,31 @@ export function TransactionsPageHeader({
   importPaymentMethods: ImportPaymentMethodOption[];
   defaultPaymentMethod: string;
 }) {
+  const timeframeToolbar = (
+    <TimeframeToolbar
+      preset={preset}
+      basePath={basePath}
+      variant="cazura"
+      monthKey={monthKey}
+      custom={custom}
+    />
+  );
+
   return (
     <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0 flex-1">
-        <p
-          className="text-[22px] leading-tight font-bold tracking-tight"
-          style={{ color: "var(--cazura-text)" }}
-        >
-          Transactions
-        </p>
-        <p
-          className="mt-1 text-[13px] font-medium"
-          style={{ color: "var(--cazura-muted)" }}
-        >
-          View and manage all your income and expenses in one place
-        </p>
+        <div className="flex items-center justify-between gap-2 sm:block">
+          <p
+            className="text-[22px] leading-tight font-bold tracking-tight"
+            style={{ color: "var(--cazura-text)" }}
+          >
+            Transactions
+          </p>
+          <div className="shrink-0 sm:hidden">{timeframeToolbar}</div>
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-2.5">
-        <TimeframeToolbar
-          preset={preset}
-          basePath={basePath}
-          variant="cazura"
-          monthKey={monthKey}
-          custom={custom}
-        />
+        <div className="hidden sm:block">{timeframeToolbar}</div>
         <ExportMenu
           preset={preset}
           custom={custom}
@@ -79,27 +80,29 @@ export function TransactionsPageHeader({
             </span>
           }
         />
-        <AddTransactionDialog
-          categories={categories}
-          paymentMethods={paymentMethods}
-          trigger={
-            <button
-              type="button"
-              className={cn(
-                buttonVariants({ size: "sm" }),
-                "h-8 gap-1.5 rounded-lg border px-3 text-xs font-medium shadow-[0_2px_8px_rgba(0,0,0,0.1)]",
-              )}
-              style={{
-                background: "var(--cazura-teal)",
-                borderColor: "#629298",
-                color: "var(--cazura-panel)",
-              }}
-            >
-              <Plus className="size-3.5" strokeWidth={2.5} />
-              Add Transaction
-            </button>
-          }
-        />
+        <div className="hidden sm:block">
+          <AddTransactionDialog
+            categories={categories}
+            paymentMethods={paymentMethods}
+            trigger={
+              <button
+                type="button"
+                className={cn(
+                  buttonVariants({ size: "sm" }),
+                  "h-8 gap-1.5 rounded-lg border px-3 text-xs font-medium shadow-[0_2px_8px_rgba(0,0,0,0.1)]",
+                )}
+                style={{
+                  background: "var(--cazura-teal)",
+                  borderColor: "#629298",
+                  color: "var(--cazura-panel)",
+                }}
+              >
+                <Plus className="size-3.5" strokeWidth={2.5} />
+                Add Transaction
+              </button>
+            }
+          />
+        </div>
       </div>
     </div>
   );

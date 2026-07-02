@@ -122,6 +122,7 @@ export default async function TransactionsPage({
     transactionName: tx.transactionName,
     note: tx.note,
     paymentMethod: tx.paymentMethod,
+    categoryId: tx.categoryId,
     categoryName: tx.categoryName,
     categoryType: tx.categoryType as "income" | "expense",
     categoryIcon: tx.categoryIcon,

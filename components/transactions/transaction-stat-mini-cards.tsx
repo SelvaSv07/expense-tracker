@@ -19,6 +19,7 @@ function StatMiniCard({
   changeLabel,
   positive,
   icon,
+  className,
 }: {
   title: string;
   amount: number;
@@ -26,10 +27,14 @@ function StatMiniCard({
   changeLabel: string;
   positive: boolean;
   icon?: ReactNode;
+  className?: string;
 }) {
   return (
     <div
-      className="flex min-w-[180px] flex-1 flex-col gap-4 rounded-xl border p-3"
+      className={cn(
+        "flex min-w-0 flex-1 flex-col gap-2.5 rounded-xl border p-3",
+        className,
+      )}
       style={{
         background: "var(--cazura-panel)",
         borderColor: "var(--cazura-border)",
@@ -124,47 +129,47 @@ export function TransactionStatMiniCards({
   const expPos = dExp <= 0;
 
   return (
-    <div
-      className={cn(
-        "flex gap-4 overflow-x-auto pb-1",
-        "md:overflow-visible",
-      )}
-    >
+    <div className="flex flex-col gap-4 md:flex-row">
       <StatMiniCard
+        className="w-full md:min-w-[180px]"
         title="Total balance"
         amount={balance}
         changePct={balPct}
         changeLabel={`${balPos ? "+" : "−"}${formatInr(Math.abs(dBal))}`}
         positive={balPos}
       />
-      <StatMiniCard
-        title="Incomes"
-        amount={income}
-        changePct={incPct}
-        changeLabel={`${incPos ? "+" : "−"}${formatInr(Math.abs(dInc))}`}
-        positive={incPos}
-        icon={
-          <ArrowDownToLine
-            className="size-4"
-            strokeWidth={1.8}
-            style={{ color: "var(--cazura-teal-mid)" }}
-          />
-        }
-      />
-      <StatMiniCard
-        title="Expenses"
-        amount={expense}
-        changePct={expPct}
-        changeLabel={`${expPos ? "+" : "−"}${formatInr(Math.abs(dExp))}`}
-        positive={expPos}
-        icon={
-          <ArrowUpFromLine
-            className="size-4"
-            strokeWidth={1.8}
-            style={{ color: "var(--cazura-red)" }}
-          />
-        }
-      />
+      <div className="grid grid-cols-2 gap-4 md:contents">
+        <StatMiniCard
+          className="md:min-w-[180px]"
+          title="Incomes"
+          amount={income}
+          changePct={incPct}
+          changeLabel={`${incPos ? "+" : "−"}${formatInr(Math.abs(dInc))}`}
+          positive={incPos}
+          icon={
+            <ArrowDownToLine
+              className="size-4"
+              strokeWidth={1.8}
+              style={{ color: "var(--cazura-teal-mid)" }}
+            />
+          }
+        />
+        <StatMiniCard
+          className="md:min-w-[180px]"
+          title="Expenses"
+          amount={expense}
+          changePct={expPct}
+          changeLabel={`${expPos ? "+" : "−"}${formatInr(Math.abs(dExp))}`}
+          positive={expPos}
+          icon={
+            <ArrowUpFromLine
+              className="size-4"
+              strokeWidth={1.8}
+              style={{ color: "var(--cazura-red)" }}
+            />
+          }
+        />
+      </div>
     </div>
   );
 }

@@ -6,6 +6,7 @@ export type ActivityRow = {
   transactionName: string | null;
   note: string | null;
   paymentMethod: string | null;
+  categoryId?: string;
   categoryName: string;
   categoryType: "income" | "expense";
   categoryIcon: string | null;

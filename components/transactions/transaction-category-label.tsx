@@ -11,10 +11,6 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-function chipClass() {
-  return "max-w-full rounded border px-1 py-0.5 text-[10px] font-medium break-words whitespace-normal";
-}
-
 export function TransactionCategoryLabel({
   name,
   icon,
@@ -36,50 +32,49 @@ export function TransactionCategoryLabel({
   const hasExtra = hasTitle || hasNote;
 
   if (variant === "cazura") {
-    return (
-      <div className="flex min-w-0 w-full flex-wrap items-center gap-x-1.5 gap-y-1">
+    const displayName = hasTitle ? transactionName!.trim() : name;
+
+    const labelBody = (
+      <>
+        <CategoryIconShelf
+          icon={icon}
+          color={color}
+          className="size-[26px] shrink-0 border p-1"
+          style={categoryIconShelfBorderStyle(color)}
+          iconClassName="size-3"
+        />
+        <span
+          className="min-w-0 truncate text-sm font-medium"
+          style={{ color: "var(--cazura-text)" }}
+        >
+          {displayName}
+        </span>
+      </>
+    );
+
+    if (hasTitle) {
+      return (
         <Tooltip>
           <TooltipTrigger
             type="button"
             className={cn(
-              "inline-flex cursor-default rounded-md border-0 bg-transparent p-0 outline-none",
+              "inline-flex w-fit max-w-full cursor-default items-center gap-1.5 rounded-md border-0 bg-transparent p-0 text-left outline-none",
               "focus-visible:ring-2 focus-visible:ring-[var(--cazura-teal)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--cazura-panel)]",
             )}
-            aria-label={`Category: ${name}`}
+            aria-label={`${displayName}, category: ${name}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <CategoryIconShelf
-              icon={icon}
-              color={color}
-              className="size-[26px] shrink-0 border p-1"
-              style={categoryIconShelfBorderStyle(color)}
-              iconClassName="size-3"
-            />
+            {labelBody}
           </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={6}>
+          <TooltipContent side="top" sideOffset={6} align="start">
             {name}
           </TooltipContent>
         </Tooltip>
-        <span
-          className="min-w-0 max-w-full text-sm font-medium break-words"
-          style={{ color: "var(--cazura-text)" }}
-        >
-          {name}
-        </span>
-        {hasTitle ? (
-          <span
-            className={chipClass()}
-            style={{
-              background: "var(--cazura-canvas)",
-              borderColor: "var(--cazura-border)",
-              color: "var(--cazura-text)",
-            }}
-            title={transactionName ?? undefined}
-          >
-            {transactionName}
-          </span>
-        ) : null}
-      </div>
+      );
+    }
+
+    return (
+      <div className="flex min-w-0 w-full items-center gap-1.5">{labelBody}</div>
     );
   }
 

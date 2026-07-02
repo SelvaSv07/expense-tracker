@@ -1,11 +1,15 @@
 "use client";
 
+import type {
+  PaymentMethodOption,
+  TransactionCategoryOption,
+} from "@/components/transactions/add-transaction-dialog";
 import type { ActivityRow } from "@/components/transactions/activity-row";
 import { useOptimisticTransactionsOptional } from "@/components/transactions/optimistic-transactions-context";
 import { TransactionCategoryLabel } from "@/components/transactions/transaction-category-label";
 import { TransactionDetailDialog } from "@/components/transactions/transaction-detail-dialog";
 import { TransactionRowActions } from "@/components/transactions/transaction-row-actions";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +30,6 @@ import {
   ArrowDown,
   ArrowUp,
   LayoutGrid,
-  MoreHorizontal,
   Search,
   SlidersHorizontal,
   TrendingDown,
@@ -55,6 +58,20 @@ function formatTableTime(iso: string) {
   });
 }
 
+function formatCardDateTime(iso: string) {
+  const d = new Date(iso);
+  const datePart = d.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+  });
+  const timePart = d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+  return `${datePart}, ${timePart}`;
+}
+
 /** Fixed slot matching `CategoryIconShelf` size so filter rows align. */
 function FilterMenuIconSlot({ children }: { children: ReactNode }) {
   return (
@@ -66,9 +83,13 @@ function FilterMenuIconSlot({ children }: { children: ReactNode }) {
 
 export function TransactionsActivityTable({
   rows: rowsProp,
+  categories,
+  paymentMethods,
 }: {
   /** When omitted and wrapped in `OptimisticTransactionsProvider`, rows come from context. */
   rows?: ActivityRow[];
+  categories: TransactionCategoryOption[];
+  paymentMethods: PaymentMethodOption[];
 }) {
   const opt = useOptimisticTransactionsOptional();
   const rows = opt?.displayRows ?? rowsProp ?? [];
@@ -79,7 +100,8 @@ export function TransactionsActivityTable({
   const [dateSort, setDateSort] = useState<"asc" | "desc">("desc");
   const [detailRow, setDetailRow] = useState<ActivityRow | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
+  const mobileLoadMoreSentinelRef = useRef<HTMLDivElement>(null);
+  const desktopLoadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
   /** One entry per category name in `rows` (icon/color from first matching row). */
   const categoryFilterOptions = useMemo(() => {
@@ -140,15 +162,6 @@ export function TransactionsActivityTable({
     return copy;
   }, [filtered, dateSort]);
 
-  /** Net of all rows matching the current filters (income minus expense). */
-  const listedNetTotal = useMemo(() => {
-    let net = 0;
-    for (const r of ordered) {
-      net += r.categoryType === "income" ? r.amount : -r.amount;
-    }
-    return net;
-  }, [ordered]);
-
   useEffect(() => {
     setVisibleCount(Math.min(INITIAL_VISIBLE, ordered.length));
   }, [query, kind, categoryName, dateSort]);
@@ -161,18 +174,23 @@ export function TransactionsActivityTable({
 
   useEffect(() => {
     const root = scrollAreaRef.current;
-    const target = loadMoreSentinelRef.current;
-    if (!root || !target || !hasMore) return;
+    const targets = [
+      mobileLoadMoreSentinelRef.current,
+      desktopLoadMoreSentinelRef.current,
+    ].filter((t): t is HTMLDivElement => t !== null);
+    if (!root || targets.length === 0 || !hasMore) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        const entry = entries[0];
-        if (!entry?.isIntersecting) return;
+        const entry = entries.find((e) => e.isIntersecting);
+        if (!entry) return;
         setVisibleCount((c) => Math.min(c + LOAD_MORE_STEP, ordered.length));
       },
       { root, rootMargin: "120px", threshold: 0 },
     );
-    observer.observe(target);
+    for (const target of targets) {
+      observer.observe(target);
+    }
     return () => observer.disconnect();
   }, [hasMore, ordered.length, displayedRows.length]);
 
@@ -187,6 +205,8 @@ export function TransactionsActivityTable({
     >
       <TransactionDetailDialog
         row={detailRow}
+        categories={categories}
+        paymentMethods={paymentMethods}
         onOpenChange={(open) => {
           if (!open) setDetailRow(null);
         }}
@@ -222,9 +242,10 @@ export function TransactionsActivityTable({
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger
+            aria-label="Filter"
             className={cn(
-              buttonVariants({ variant: "outline", size: "sm" }),
-              "h-[30px] gap-1 rounded-lg border px-2.5 text-[11px] font-bold shadow-none",
+              buttonVariants({ variant: "outline", size: "icon" }),
+              "size-[30px] shrink-0 rounded-lg border shadow-none",
             )}
             style={{
               background: "var(--cazura-panel)",
@@ -233,7 +254,6 @@ export function TransactionsActivityTable({
             }}
           >
             <SlidersHorizontal className="size-3" strokeWidth={2} />
-            Filter
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
@@ -327,28 +347,11 @@ export function TransactionsActivityTable({
             ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="size-[30px] shrink-0 rounded-lg border shadow-none"
-          style={{
-            background: "var(--cazura-panel)",
-            borderColor: "var(--cazura-border)",
-          }}
-          disabled
-          aria-label="More (coming soon)"
-        >
-          <MoreHorizontal className="size-3.5 text-[var(--cazura-label)]" />
-        </Button>
       </div>
 
-      <div
-        className="m-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border"
-        style={{ borderColor: "var(--cazura-border)" }}
-      >
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div
-          className="flex min-w-[720px] shrink-0 items-center gap-3 border-b px-3 py-2"
+          className="hidden min-w-[720px] shrink-0 items-center gap-3 border-b px-3 py-2 md:flex"
           style={{
             background: "#f0f0f0",
             borderColor: "var(--cazura-row-divider)",
@@ -394,7 +397,7 @@ export function TransactionsActivityTable({
 
         <div
           ref={scrollAreaRef}
-          className="min-h-0 flex-1 overflow-y-auto overflow-x-auto"
+          className="min-h-0 flex-1 overflow-y-auto md:overflow-x-auto"
         >
           {displayedRows.length === 0 ? (
             <p
@@ -407,6 +410,101 @@ export function TransactionsActivityTable({
             </p>
           ) : (
             <>
+              <div className="flex flex-col gap-2 p-3 md:hidden">
+                {displayedRows.map((tx) => {
+                  const positive = tx.categoryType === "income";
+                  return (
+                    <div
+                      key={tx.id}
+                      tabIndex={tx.optimistic ? undefined : 0}
+                      aria-haspopup={tx.optimistic ? undefined : "dialog"}
+                      aria-label={
+                        tx.optimistic
+                          ? undefined
+                          : `View details: ${tx.categoryName}, ${positive ? "income" : "expense"} ${formatInr(tx.amount)}`
+                      }
+                      className={cn(
+                        "flex flex-col gap-1.5 rounded-lg border p-3 outline-none transition-colors",
+                        !tx.optimistic &&
+                          "cursor-pointer hover:bg-[var(--cazura-canvas)] focus-visible:bg-[var(--cazura-canvas)] focus-visible:ring-2 focus-visible:ring-[var(--cazura-border)] focus-visible:ring-offset-2",
+                        tx.optimistic && "opacity-[0.72]",
+                      )}
+                      style={{
+                        background: "var(--cazura-panel)",
+                        borderColor: "var(--cazura-border)",
+                      }}
+                      onClick={() => {
+                        if (tx.optimistic) return;
+                        setDetailRow(tx);
+                      }}
+                      onKeyDown={(e) => {
+                        if (tx.optimistic) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setDetailRow(tx);
+                        }
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <TransactionCategoryLabel
+                            name={tx.categoryName}
+                            icon={tx.categoryIcon}
+                            color={tx.categoryColor}
+                            transactionName={tx.transactionName}
+                            note={tx.note}
+                            variant="cazura"
+                          />
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p
+                            className="text-sm leading-none font-bold tabular-nums"
+                            style={{
+                              color: positive
+                                ? "var(--cazura-teal-mid)"
+                                : "var(--cazura-red)",
+                            }}
+                          >
+                            {positive ? "+" : "−"}
+                            {formatInr(tx.amount)}
+                          </p>
+                          {tx.optimistic ? (
+                            <span
+                              className="mt-1 block text-[10px] font-medium"
+                              style={{ color: "var(--cazura-muted)" }}
+                            >
+                              Saving…
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <p
+                          className="min-w-0 text-xs font-medium"
+                          style={{ color: "var(--cazura-muted)" }}
+                        >
+                          {formatCardDateTime(tx.occurredAt)}
+                        </p>
+                        <p
+                          className="shrink-0 text-right text-[11px] font-medium"
+                          style={{ color: "var(--cazura-text)" }}
+                        >
+                          {formatPaymentMethodLabel(tx.paymentMethod)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {hasMore ? (
+                  <div
+                    ref={mobileLoadMoreSentinelRef}
+                    className="h-1 w-full shrink-0"
+                    aria-hidden
+                  />
+                ) : null}
+              </div>
+
+              <div className="hidden md:block">
               {displayedRows.map((tx, i) => (
                 <div
                   key={tx.id}
@@ -500,42 +598,11 @@ export function TransactionsActivityTable({
               ))}
               {hasMore ? (
                 <div
-                  ref={loadMoreSentinelRef}
+                  ref={desktopLoadMoreSentinelRef}
                   className="h-1 w-full shrink-0"
                   aria-hidden
                 />
               ) : null}
-              <div
-                className="flex min-w-[720px] items-center gap-3 border-t px-3 py-2.5"
-                style={{
-                  background: "#f0f0f0",
-                  borderColor: "var(--cazura-row-divider)",
-                }}
-                role="row"
-                aria-label={`Total for listed transactions: ${listedNetTotal >= 0 ? "+" : "−"}${formatInr(Math.abs(listedNetTotal))}`}
-              >
-                <span
-                  className="min-w-[220px] flex-1 basis-0 text-xs font-bold"
-                  style={{ color: "var(--cazura-text)" }}
-                >
-                  Total
-                </span>
-                <span className="w-[148px] shrink-0" aria-hidden />
-                <span className="w-24 shrink-0" aria-hidden />
-                <span
-                  className="w-[128px] shrink-0 pr-3 text-right text-xs font-bold tabular-nums"
-                  style={{
-                    color:
-                      listedNetTotal >= 0
-                        ? "var(--cazura-teal-mid)"
-                        : "var(--cazura-red)",
-                  }}
-                >
-                  {listedNetTotal >= 0 ? "+" : "−"}
-                  {formatInr(Math.abs(listedNetTotal))}
-                </span>
-                <span className="w-[120px] shrink-0" aria-hidden />
-                <span className="w-12 shrink-0" aria-hidden />
               </div>
             </>
           )}

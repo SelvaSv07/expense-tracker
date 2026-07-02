@@ -13,13 +13,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { Bell, ChevronDown, Command, Crown, Search } from "lucide-react";
+import {
+  Bell,
+  ChevronDown,
+  Command,
+  Crown,
+  Menu,
+  Search,
+  X,
+} from "lucide-react";
+import { useState } from "react";
 
 export function AppHeader({
   user,
+  onMenuClick,
 }: {
   user: { name: string; email: string; image?: string | null };
+  onMenuClick?: () => void;
 }) {
+  const [searchOpen, setSearchOpen] = useState(false);
+
   const initials = user.name
     .split(" ")
     .map((n) => n[0])
@@ -29,56 +42,129 @@ export function AppHeader({
 
   return (
     <header
-      className="flex h-14 shrink-0 items-center justify-between gap-4 border-b px-4"
+      className="flex h-14 shrink-0 items-center justify-between gap-2 border-b px-3 sm:gap-4 sm:px-4"
       style={{
         background: "var(--cazura-panel)",
         borderColor: "var(--cazura-border)",
       }}
     >
-      <div
-        className="relative flex h-8 w-[260px] max-w-full shrink-0 items-center justify-between rounded-lg border px-2.5"
-        style={{
-          background: "var(--cazura-panel)",
-          borderColor: "var(--cazura-border)",
-        }}
-      >
-        <div className="flex items-center gap-1.5">
-          <Search
-            className="size-[13px] shrink-0"
-            strokeWidth={2}
-            color="var(--cazura-muted)"
-          />
-          <Input
-            placeholder="Search anything"
-            className="h-7 border-0 bg-transparent p-0 text-xs shadow-none focus-visible:ring-0"
-            style={{ color: "var(--cazura-muted)" }}
-            readOnly
-          />
-        </div>
-        <div className="flex items-center gap-1">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          type="button"
+          className="size-8 shrink-0 rounded-lg border shadow-none lg:hidden"
+          style={{
+            background: "var(--cazura-panel)",
+            borderColor: "var(--cazura-border)",
+          }}
+          aria-label="Open menu"
+          onClick={onMenuClick}
+        >
+          <Menu className="size-4" strokeWidth={1.8} color="var(--cazura-text)" />
+        </Button>
+
+        {searchOpen ? (
           <div
-            className="flex items-center rounded border px-0.5 py-0.5"
+            className="flex h-8 min-w-0 flex-1 items-center gap-1.5 rounded-lg border px-2.5 lg:hidden"
             style={{
               background: "var(--cazura-panel)",
               borderColor: "var(--cazura-border)",
             }}
           >
-            <Command className="size-2.5" strokeWidth={2} color="var(--cazura-muted)" />
+            <Search
+              className="size-[13px] shrink-0"
+              strokeWidth={2}
+              color="var(--cazura-muted)"
+            />
+            <Input
+              placeholder="Search anything"
+              className="h-7 min-w-0 flex-1 border-0 bg-transparent p-0 text-xs shadow-none focus-visible:ring-0"
+              style={{ color: "var(--cazura-muted)" }}
+              readOnly
+              autoFocus
+            />
+            <button
+              type="button"
+              className="shrink-0 rounded p-0.5 hover:opacity-80"
+              aria-label="Close search"
+              onClick={() => setSearchOpen(false)}
+            >
+              <X className="size-3.5" strokeWidth={2} color="var(--cazura-muted)" />
+            </button>
           </div>
-          <div
-            className="flex size-[15px] items-center justify-center rounded border text-[8px] font-bold"
-            style={{
-              background: "var(--cazura-panel)",
-              borderColor: "var(--cazura-border)",
-              color: "var(--cazura-muted)",
-            }}
-          >
-            F
-          </div>
-        </div>
+        ) : (
+          <>
+            <div
+              className="relative hidden h-8 w-full max-w-[260px] shrink-0 items-center justify-between rounded-lg border px-2.5 lg:flex"
+              style={{
+                background: "var(--cazura-panel)",
+                borderColor: "var(--cazura-border)",
+              }}
+            >
+              <div className="flex min-w-0 items-center gap-1.5">
+                <Search
+                  className="size-[13px] shrink-0"
+                  strokeWidth={2}
+                  color="var(--cazura-muted)"
+                />
+                <Input
+                  placeholder="Search anything"
+                  className="h-7 border-0 bg-transparent p-0 text-xs shadow-none focus-visible:ring-0"
+                  style={{ color: "var(--cazura-muted)" }}
+                  readOnly
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <div
+                  className="flex items-center rounded border px-0.5 py-0.5"
+                  style={{
+                    background: "var(--cazura-panel)",
+                    borderColor: "var(--cazura-border)",
+                  }}
+                >
+                  <Command
+                    className="size-2.5"
+                    strokeWidth={2}
+                    color="var(--cazura-muted)"
+                  />
+                </div>
+                <div
+                  className="flex size-[15px] items-center justify-center rounded border text-[8px] font-bold"
+                  style={{
+                    background: "var(--cazura-panel)",
+                    borderColor: "var(--cazura-border)",
+                    color: "var(--cazura-muted)",
+                  }}
+                >
+                  F
+                </div>
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              size="icon"
+              type="button"
+              className="size-8 shrink-0 rounded-lg border shadow-none lg:hidden"
+              style={{
+                background: "var(--cazura-panel)",
+                borderColor: "var(--cazura-border)",
+              }}
+              aria-label="Search"
+              onClick={() => setSearchOpen(true)}
+            >
+              <Search
+                className="size-3.5"
+                strokeWidth={1.8}
+                color="var(--cazura-text)"
+              />
+            </Button>
+          </>
+        )}
       </div>
 
-      <div className="flex min-w-0 flex-1 items-center justify-end gap-2.5">
+      <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
         <Button
           variant="outline"
           size="icon"
@@ -135,7 +221,7 @@ export function AppHeader({
               </div>
             </div>
             <ChevronDown
-              className="size-[13px] shrink-0 opacity-70"
+              className="hidden size-[13px] shrink-0 opacity-70 sm:block"
               strokeWidth={2}
             />
           </DropdownMenuTrigger>

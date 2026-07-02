@@ -2,7 +2,7 @@
 
 import { formatInr } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { Wand2 } from "lucide-react";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { useCallback, useEffect, useId, useState } from "react";
 import {
   Area,
@@ -121,104 +121,65 @@ function CashFlowTooltip({
   }
 
   const short = String(label);
-  const monthTitle =
-    MONTH_LONG[short] ?? short;
+  const monthTitle = MONTH_LONG[short] ?? short;
   const monthYear = `${monthTitle} ${new Date().getFullYear()}`;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div
+      className="w-[160px] rounded-lg border p-2.5 shadow-[0_4px_12px_rgba(0,0,0,0.05)]"
+      style={{
+        background: "var(--cazura-panel)",
+        borderColor: "var(--cazura-border)",
+      }}
+    >
+      <p
+        className="mb-2 text-[10px] font-medium"
+        style={{ color: "var(--cazura-muted)" }}
+      >
+        {monthYear}
+      </p>
       {income != null && income.value != null ? (
-        <div
-          className="w-[148px] rounded-lg border p-2.5 shadow-[0_4px_12px_rgba(0,0,0,0.05)]"
-          style={{
-            background: "var(--cazura-panel)",
-            borderColor: "var(--cazura-border)",
-          }}
-        >
-          <div className="mb-1.5 flex items-center gap-1.5">
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
             <span
               className="size-1.5 shrink-0 rounded-full"
               style={{ background: "var(--cazura-teal-mid)" }}
             />
             <span
-              className="flex-1 text-[10px] font-medium"
+              className="text-[10px] font-medium"
               style={{ color: "var(--cazura-text)" }}
             >
               Incomes
             </span>
-            <span
-              className="text-[8px]"
-              style={{ color: "var(--cazura-muted)" }}
-            >
-              {monthYear}
-            </span>
           </div>
-          <p
-            className="mb-1 text-xs leading-tight font-bold"
+          <span
+            className="text-xs font-bold tabular-nums"
             style={{ color: "var(--cazura-text)" }}
           >
             {formatInr(Math.round(Number(income.value)))}
-          </p>
-          <div className="flex items-center gap-1">
-            <Wand2
-              className="size-2.5 shrink-0"
-              strokeWidth={2}
-              style={{ color: "var(--cazura-teal-light)" }}
-            />
-            <span
-              className="bg-gradient-to-r from-[var(--cazura-teal)] to-[var(--cazura-teal-soft)] bg-clip-text text-[9px] font-medium text-transparent"
-              style={{ WebkitTextFillColor: "transparent" }}
-            >
-              Compare to this month
-            </span>
-          </div>
+          </span>
         </div>
       ) : null}
       {expense != null && expense.value != null ? (
-        <div
-          className="w-[148px] rounded-lg border p-2.5 shadow-[0_4px_12px_rgba(0,0,0,0.05)]"
-          style={{
-            background: "var(--cazura-panel)",
-            borderColor: "var(--cazura-border)",
-          }}
-        >
-          <div className="mb-1.5 flex items-center gap-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
             <span
               className="size-1.5 shrink-0 rounded-full"
               style={{ background: "var(--cazura-red)" }}
             />
             <span
-              className="flex-1 text-[10px] font-medium"
+              className="text-[10px] font-medium"
               style={{ color: "var(--cazura-text)" }}
             >
               Expenses
             </span>
-            <span
-              className="text-[8px]"
-              style={{ color: "var(--cazura-muted)" }}
-            >
-              {monthYear}
-            </span>
           </div>
-          <p
-            className="mb-1 text-xs leading-tight font-bold"
+          <span
+            className="text-xs font-bold tabular-nums"
             style={{ color: "var(--cazura-text)" }}
           >
             {formatInr(Math.round(Number(expense.value)))}
-          </p>
-          <div className="flex items-center gap-1">
-            <Wand2
-              className="size-2.5 shrink-0"
-              strokeWidth={2}
-              style={{ color: "var(--cazura-teal-light)" }}
-            />
-            <span
-              className="bg-gradient-to-r from-[var(--cazura-teal)] to-[var(--cazura-teal-soft)] bg-clip-text text-[9px] font-medium text-transparent"
-              style={{ WebkitTextFillColor: "transparent" }}
-            >
-              Compare to this month
-            </span>
-          </div>
+          </span>
         </div>
       ) : null}
     </div>
@@ -228,6 +189,7 @@ function CashFlowTooltip({
 export function IncomeExpenseChart({ data }: { data: Row[] }) {
   const gradId = useId().replace(/:/g, "");
   const [activeLabel, setActiveLabel] = useState<string | null>(null);
+  const isNarrow = useMediaQuery("(max-width: 640px)");
   const onActiveLabel = useCallback((l: string | null) => {
     setActiveLabel(l);
   }, []);
@@ -254,7 +216,7 @@ export function IncomeExpenseChart({ data }: { data: Row[] }) {
       >
         <ComposedChart
           data={chartData}
-          margin={{ top: 8, right: 28, left: 6, bottom: 8 }}
+          margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
         >
           <defs>
             <linearGradient
@@ -277,7 +239,7 @@ export function IncomeExpenseChart({ data }: { data: Row[] }) {
             dataKey="name"
             axisLine={false}
             tickLine={false}
-            interval={0}
+            interval={isNarrow ? 1 : 0}
             tick={(props) => {
               const x = Number(props.x);
               const y = Number(props.y);
@@ -305,7 +267,7 @@ export function IncomeExpenseChart({ data }: { data: Row[] }) {
                   dy={10}
                   textAnchor={textAnchor}
                   className={cn(
-                    "text-[11px]",
+                    isNarrow ? "text-[9px]" : "text-[11px]",
                     active ? "font-bold" : "font-normal",
                   )}
                   fill={active ? "var(--cazura-text)" : "var(--cazura-label)"}
@@ -325,9 +287,8 @@ export function IncomeExpenseChart({ data }: { data: Row[] }) {
             tick={{
               fontSize: 10,
               fill: "var(--cazura-label)",
-              dx: -4,
             }}
-            width={58}
+            width={36}
           />
           {activeLabel ? (
             <ReferenceLine
@@ -338,6 +299,7 @@ export function IncomeExpenseChart({ data }: { data: Row[] }) {
             />
           ) : null}
           <Tooltip
+            shared
             content={(props) => (
               <CashFlowTooltip
                 active={props.active}

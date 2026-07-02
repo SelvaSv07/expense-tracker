@@ -306,34 +306,39 @@ export function TransactionsSubscriptionsCard({
           className="w-full max-w-[calc(100%-2rem)] gap-0 border-[var(--cazura-border)] bg-[var(--cazura-panel)] p-0 text-[var(--cazura-text)] ring-[var(--cazura-border)] sm:max-w-lg"
           showCloseButton={false}
         >
-          <div className="flex flex-col gap-3 border-b border-[var(--cazura-border)] px-4 pt-4 pb-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-            <DialogHeader className="min-w-0 flex-1 space-y-1.5 text-left">
-              <DialogTitle style={{ color: "var(--cazura-text)" }}>
-                Subscriptions
-              </DialogTitle>
-              <DialogDescription style={{ color: "var(--cazura-muted)" }}>
-                All recurring subscriptions and EMIs.
-              </DialogDescription>
+          <div className="border-b border-[var(--cazura-border)] px-4 pt-4 pb-3">
+            <DialogHeader className="gap-0 text-left">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <DialogTitle style={{ color: "var(--cazura-text)" }}>
+                    Subscriptions
+                  </DialogTitle>
+                  <DialogDescription style={{ color: "var(--cazura-muted)" }}>
+                    All recurring subscriptions and EMIs.
+                  </DialogDescription>
+                </div>
+                <SubscriptionFormDialog
+                  categories={categories}
+                  paymentMethods={paymentMethods}
+                  edit={editing}
+                  onEditClear={() => setEditing(null)}
+                  trigger={
+                    <button
+                      type="button"
+                      className={cn(
+                        subscriptionAddButtonClassName,
+                        "shrink-0",
+                      )}
+                      style={subscriptionAddButtonStyle}
+                    >
+                      <Plus className="size-3.5" strokeWidth={2.5} />
+                      <span className="sm:hidden">Add</span>
+                      <span className="hidden sm:inline">Add Subscription</span>
+                    </button>
+                  }
+                />
+              </div>
             </DialogHeader>
-            <SubscriptionFormDialog
-              categories={categories}
-              paymentMethods={paymentMethods}
-              edit={editing}
-              onEditClear={() => setEditing(null)}
-              trigger={
-                <button
-                  type="button"
-                  className={cn(
-                    subscriptionAddButtonClassName,
-                    "self-end sm:mt-0.5 sm:self-start",
-                  )}
-                  style={subscriptionAddButtonStyle}
-                >
-                  <Plus className="size-3.5" strokeWidth={2.5} />
-                  Add Subscription
-                </button>
-              }
-            />
           </div>
           <ScrollArea className="max-h-[min(60vh,420px)] overflow-hidden pb-4 pl-4 pr-3">
             <div className="flex flex-col divide-y divide-[var(--cazura-border)]">

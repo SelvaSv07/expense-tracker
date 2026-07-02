@@ -160,3 +160,73 @@ export async function deleteTransaction(transactionId: string) {
   revalidatePath("/");
   revalidatePath("/transactions");
 }
+
+const updateSchema = z.object({
+  id: z.string(),
+  categoryId: z.string(),
+  amount: z.number().int().positive(),
+  occurredAt: z.coerce.date(),
+  transactionName: z.string().optional(),
+  note: z.string().optional(),
+  paymentMethod: z.string().optional(),
+});
+
+export async function updateTransaction(input: z.infer<typeof updateSchema>) {
+  const parsed = updateSchema.parse(input);
+  const session = await getSession();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const [existing] = await db
+    .select({ id: transactions.id })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.id, parsed.id),
+        eq(transactions.userId, session.user.id),
+      ),
+    )
+    .limit(1);
+  if (!existing) throw new Error("Not found");
+
+  const [c] = await db
+    .select()
+    .from(categories)
+    .where(
+      and(
+        eq(categories.id, parsed.categoryId),
+        eq(categories.userId, session.user.id),
+      ),
+    )
+    .limit(1);
+  if (!c) throw new Error("Invalid category");
+
+  let paymentMethod: string | null = null;
+  const rawPm = parsed.paymentMethod?.trim();
+  if (rawPm) {
+    const methods = await listPaymentMethods(session.user.id);
+    const allowed = new Set(methods.map((m) => m.name));
+    if (!allowed.has(rawPm)) {
+      throw new Error(
+        `Invalid payment method "${rawPm}". Add or choose a method from Settings → Payment methods.`,
+      );
+    }
+    paymentMethod = rawPm;
+  }
+
+  await db
+    .update(transactions)
+    .set({
+      categoryId: parsed.categoryId,
+      amount: parsed.amount,
+      occurredAt: parsed.occurredAt,
+      transactionName: parsed.transactionName?.trim() || null,
+      note: parsed.note?.trim() || null,
+      paymentMethod,
+    })
+    .where(eq(transactions.id, parsed.id));
+
+  await bumpUserFinanceCache(session.user.id);
+  revalidatePath("/");
+  revalidatePath("/transactions");
+  revalidatePath("/overview");
+}
